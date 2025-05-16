@@ -1,0 +1,282 @@
+﻿@page "/"
+@using Google.Api.Gax.Grpc
+@using Google.Maps.Places.V1
+@using System.Linq
+@using Google.Maps.Routing.V2
+@using Google.Type
+@rendermode InteractiveServer
+
+@inject IConfiguration Configuration
+
+
+<PageTitle>Itinerary planner</PageTitle>
+
+<button @onclick=UpdateItineraryTimes style="float:right">Recalculate arrival/departure times</button>
+
+<div>
+    <input type="text" @bind=SearchText @bind:event="oninput" /> 
+    <button @onclick="() => SearchText = string.Empty">Clear</button>
+    @if (addedPlaces.Count() == 0)
+    {
+        <div>Start by searching for a starting place for your intinerary</div>
+    }
+</div>
+
+<table class="table" style="background-color:lightgrey" id="foundPlacesTable">    
+    <tbody>
+        @foreach (var place in foundPlaces)
+        {
+            var p = place;
+            <tr @onclick="@(() => AddPlace(p))">
+                <td>@place.DisplayName.Text</td>                
+                <td>@place.FormattedAddress</td>                
+
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+<h2>Your Itinerary</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th></th>
+            <th>Place</th>
+            <th>Visit Time</th>
+            <th>Commute Time</th>
+            <th></th>
+            <th>Arrival</th>
+            <th>Departure</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var placeStruct in addedPlaces.OrderBy(x => x.Index))
+        {
+            var ps = placeStruct;
+            <tr>
+                <td>@placeStruct.Index</td>
+                <td>@placeStruct.Place.DisplayName.Text</td>                
+                <td>
+                    @if (placeStruct.Index != 1)
+                    {
+                        <div>
+                            <input type="number" @bind=ps.VisitHours style="width:50px" /> hrs
+                        </div>                        
+                    }
+                </td>
+                <td>
+                    @if (placeStruct.Index != 1)
+                    {
+                        <span>
+                            <input type="number" @bind=ps.MinutesAwayFromPreviousPlace style="width:50px" /> min
+                        </span>
+                    }
+                </td>
+                <td>
+                    @if (placeStruct.Index != 1)
+                    {
+                        <a href="@placeStruct.GoogleMapsUrl" target="_blank">Directions</a>                        
+                    }
+                </td>
+                <td>
+                    @if (placeStruct.Index != 1)
+                    {
+                        @placeStruct.ArrivalTime.ToShortTimeString();
+                    }
+                </td>
+                <td>@placeStruct.DepartureTime.ToShortTimeString()</td>
+                <td>
+                    <button @onclick="() => Delete(ps)">Delete</button>
+                    <button @onclick="() => MoveUp(ps)">Move Up</button>
+                    <button @onclick="() => MoveDown(ps)">Move Down</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private System.DateTime StartTime = new System.DateTime(2025, 5, 16, 8, 30, 0);
+
+    private string searchText = "";
+    string SearchText
+    {
+        get => searchText;
+        set
+        {
+            searchText = value;
+            DebounceSearchInput(); 
+        }
+    }
+
+
+    private CancellationTokenSource src = new();
+
+    private List<Place> foundPlaces = new List<Place>();
+    private List<AddedPlace> addedPlaces = new List<AddedPlace>();
+
+    private class AddedPlace
+    {
+        public int Index { get; set; }
+        public double VisitHours { get; set; }
+        //public long SecondsAwayFromPreviousPlace { get; set; }
+        //public long MinutesAwayFromPreviousPlace => SecondsAwayFromPreviousPlace / 60;
+        public Place Place { get; set; }
+        public string GoogleMapsUrl { get; set; }        
+        public long MinutesAwayFromPreviousPlace { get; set; }
+        public System.DateTime ArrivalTime { get; set; }
+        public System.DateTime DepartureTime { get; set; }
+    }
+
+    private void AddPlace(Place place)
+    {
+        int nextIndex = addedPlaces.Count + 1;
+        addedPlaces.Add(new AddedPlace
+            {
+                Index = nextIndex,
+                Place = place
+            });
+
+        UpdateSecondsAwayOnPlaces();
+    }
+
+    private void Delete(AddedPlace place)
+    {
+        addedPlaces.Remove(place);
+        foreach (var addedPlace in addedPlaces.Where(x => x.Index > place.Index))
+        {
+            addedPlace.Index--;
+        }
+        UpdateSecondsAwayOnPlaces();
+
+    }
+
+    private void MoveUp(AddedPlace place)
+    {
+        if (place.Index == 1) return;
+        var swapPlace = addedPlaces.FirstOrDefault(x => x.Index == place.Index - 1);
+        place.Index--;
+        swapPlace.Index++;
+        UpdateSecondsAwayOnPlaces();
+
+    }
+
+    private void MoveDown(AddedPlace place)
+    {
+        if (place.Index == addedPlaces.Count()) return;
+        var swapPlace = addedPlaces.FirstOrDefault(x => x.Index == place.Index + 1);
+        place.Index++;
+        swapPlace.Index--;
+        UpdateSecondsAwayOnPlaces();
+
+    }
+
+    private void UpdateItineraryTimes()
+    {
+        foreach (var place in addedPlaces.OrderBy(x => x.Index))
+        {
+            var currentPlace = place;
+            var previousPlace = addedPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
+
+            if (previousPlace == null)
+            {
+                currentPlace.DepartureTime = StartTime;
+            }
+            else
+            {
+                currentPlace.ArrivalTime = previousPlace.DepartureTime.AddMinutes(currentPlace.MinutesAwayFromPreviousPlace);
+                currentPlace.DepartureTime = currentPlace.ArrivalTime.AddHours(currentPlace.VisitHours);
+            }
+        }
+    }
+
+    private void UpdateSecondsAwayOnPlaces()
+    {
+        RoutesClient client = new RoutesClientBuilder
+            {
+                ApiKey = Configuration["GoogleAPIKey"]
+            }.Build();
+
+        foreach (var place in addedPlaces.OrderBy(x => x.Index))
+        {
+            var currentPlace = place;
+            var previousPlace = addedPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
+
+            if (previousPlace == null)
+            {
+                //currentPlace.SecondsAwayFromPreviousPlace = 0;                
+                continue; 
+            }
+
+            const string GoogleMapsUrl = "https://www.google.com/maps/dir/?api=1&origin={0},{1}&origin_place_id={2}&destination={3},{4}&destination_place_id={4}&travelmode=transit";
+
+            currentPlace.GoogleMapsUrl = string.Format(GoogleMapsUrl, previousPlace.Place.Location.Latitude, previousPlace.Place.Location.Longitude, previousPlace.Place.Id, currentPlace.Place.Location.Latitude, currentPlace.Place.Location.Longitude, currentPlace.Place.Id);
+
+            /*
+
+
+            CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "routes.legs.steps.transitDetails");
+            ComputeRoutesRequest request = new ComputeRoutesRequest
+            {
+                Origin = new Waypoint
+                {
+                    //Location = new Location { LatLng = new LatLng { Latitude = 37.419734, Longitude = -122.0827784 } }
+                    //Address = "Humberto Delgado Airport, Portugal"
+                    Address = previousPlace.Place.FormattedAddress
+                    //Location = new Location { LatLng = new LatLng { Latitude = previousPlace.Place.Location.Latitude, Longitude = previousPlace.Place.Location.Longitude} },
+                    //Address = previousPlace.Place.PlusCode.CompoundCode,
+                    //PlaceId = previousPlace.Place.Id
+                    },
+                Destination = new Waypoint
+                {
+                    //Location = new Location { LatLng = new LatLng { Latitude = 37.417670, Longitude = -122.079595 } }
+                    //Address = "Basílica of Estrela, Praça da Estrela, 1200-667 Lisboa, Portugal"
+                    Address = currentPlace.Place.FormattedAddress
+                    //Location = new Location { LatLng = new LatLng { Latitude = currentPlace.Place.Location.Latitude, Longitude = currentPlace.Place.Location.Longitude } },
+                    //Address = currentPlace.Place.PlusCode.CompoundCode,
+                    //PlaceId = currentPlace.Place.Id
+                    },
+                TravelMode = RouteTravelMode.Transit,
+                ComputeAlternativeRoutes = true
+                };
+            ComputeRoutesResponse response = client.ComputeRoutes(request, callSettings);
+            currentPlace.SecondsAwayFromPreviousPlace = response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0;
+            */
+
+    }
+    }
+
+    private async Task DebounceSearchInput()
+    {
+        src.Cancel();
+        src = new();
+        await Task.Delay(1000, src.Token).ContinueWith(UpdateFoundPlaces, src.Token);
+    }
+
+    private void UpdateFoundPlaces(Task obj)
+    {
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            foundPlaces.Clear();
+        }
+        else
+        {
+            PlacesClient client = new PlacesClientBuilder
+                {
+                    ApiKey = Configuration["GoogleAPIKey"]
+                }.Build();
+            CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "*");
+            SearchTextRequest request = new SearchTextRequest
+                {
+                    TextQuery = searchText
+                };
+            SearchTextResponse response = client.SearchText(request, callSettings);
+            foundPlaces = response.Places.ToList();            
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+}
