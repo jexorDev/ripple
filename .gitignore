@@ -28,3 +28,4 @@ dist-ssr
 /bin/Debug/net9.0
 /appsettings.Development.json
 /appsettings.json
+/bin/Release/net9.0
