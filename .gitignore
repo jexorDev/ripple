@@ -29,3 +29,9 @@ dist-ssr
 /appsettings.Development.json
 /appsettings.json
 /bin/Release/net9.0
+/Properties/PublishProfiles/doostin-001-site1 - FTP.pubxml
+/Properties/PublishProfiles/doostin-001-site1 - FTP.pubxml.user
+/Properties/PublishProfiles/doostin-001-site1 - Web Deploy.pubxml
+/Properties/PublishProfiles/doostin-001-site1 - Web Deploy.pubxml.user
+/Properties/PublishProfiles/FolderProfile.pubxml.user
+/Ripple.csproj.user
