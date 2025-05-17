@@ -22,7 +22,7 @@
     }
 </div>
 
-<table class="table" style="background-color:lightgrey" id="foundPlacesTable">    
+<table class="table" style="display: block; border: 1px solid lightgrey; max-height: 200px; overflow-y: scroll; margin-top:2px" id="foundPlacesTable">
     <tbody>
         @foreach (var place in foundPlaces)
         {
@@ -63,7 +63,7 @@
                     @if (placeStruct.Index != 1)
                     {
                         <div>
-                            <input type="number" @bind=ps.VisitHours style="width:50px" /> hrs
+                            <input type="number" @bind=ps.VisitHours style="width:60px" /> hrs
                         </div>                        
                     }
                 </td>
@@ -71,7 +71,7 @@
                     @if (placeStruct.Index != 1)
                     {
                         <span>
-                            <input type="number" @bind=ps.MinutesAwayFromPreviousPlace style="width:50px" /> min
+                            <input type="number" @bind=ps.MinutesAwayFromPreviousPlace style="width:60px" /> min
                         </span>
                     }
                 </td>
@@ -87,7 +87,19 @@
                         @placeStruct.ArrivalTime.ToShortTimeString();
                     }
                 </td>
-                <td>@placeStruct.DepartureTime.ToShortTimeString()</td>
+                <td>
+                    @if (placeStruct.Index != 1)
+                    {
+                        @placeStruct.DepartureTime.ToShortTimeString()
+
+                    }
+                    else
+                    {
+                        <span>
+                            <input type="number" @bind=StartTimeHour style="width:50px" /> : <input type="number" @bind=StartTimeMinute style="width:50px" />
+                        </span>
+                    }
+                </td>
                 <td>
                     <button @onclick="() => Delete(ps)">Delete</button>
                     <button @onclick="() => MoveUp(ps)">Move Up</button>
@@ -109,6 +121,26 @@
         {
             searchText = value;
             DebounceSearchInput(); 
+        }
+    }
+
+    int StartTimeHour
+    {
+        get => StartTime.Hour;
+        set
+        {
+            if (value > 23) return;
+            StartTime = new System.DateTime(2025, 5, 16, value, StartTime.Minute, 0);
+        }
+    }
+
+    int StartTimeMinute
+    {
+        get => StartTime.Minute;
+        set
+        {
+            if (value > 59) return;
+            StartTime = new System.DateTime(2025, 5, 16, StartTime.Hour, value, 0);
         }
     }
 
