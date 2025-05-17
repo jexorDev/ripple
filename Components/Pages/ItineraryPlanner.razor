@@ -16,6 +16,7 @@
 <div>
     <input type="text" @bind=SearchText @bind:event="oninput" /> 
     <button @onclick="() => SearchText = string.Empty">Clear</button>
+    <input type="checkbox" @bind=usePublicTransit />Use Public Transit
     @if (addedPlaces.Count() == 0)
     {
         <div>Start by searching for a starting place for your intinerary</div>
@@ -149,6 +150,7 @@
 
     private List<Place> foundPlaces = new List<Place>();
     private List<AddedPlace> addedPlaces = new List<AddedPlace>();
+    private bool usePublicTransit = false;
 
     private class AddedPlace
     {
@@ -171,6 +173,8 @@
                 Index = nextIndex,
                 Place = place
             });
+
+        SearchText = string.Empty;
 
         UpdateSecondsAwayOnPlaces();
     }
@@ -243,42 +247,51 @@
                 continue; 
             }
 
-            const string GoogleMapsUrl = "https://www.google.com/maps/dir/?api=1&origin={0},{1}&origin_place_id={2}&destination={3},{4}&destination_place_id={4}&travelmode=transit";
+            const string GoogleMapsUrl = "https://www.google.com/maps/dir/?api=1&origin={0},{1}&origin_place_id={2}&destination={3},{4}&destination_place_id={4}&travelmode={5}";
 
-            currentPlace.GoogleMapsUrl = string.Format(GoogleMapsUrl, previousPlace.Place.Location.Latitude, previousPlace.Place.Location.Longitude, previousPlace.Place.Id, currentPlace.Place.Location.Latitude, currentPlace.Place.Location.Longitude, currentPlace.Place.Id);
+            currentPlace.GoogleMapsUrl = string.Format(
+                GoogleMapsUrl, 
+                previousPlace.Place.Location.Latitude, 
+                previousPlace.Place.Location.Longitude, 
+                previousPlace.Place.Id, 
+                currentPlace.Place.Location.Latitude, 
+                currentPlace.Place.Location.Longitude, 
+                currentPlace.Place.Id,
+                (usePublicTransit ? "transit" : "drive"));
 
-            /*
 
 
-            CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "routes.legs.steps.transitDetails");
+            CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "routes.*");
             ComputeRoutesRequest request = new ComputeRoutesRequest
             {
                 Origin = new Waypoint
                 {
                     //Location = new Location { LatLng = new LatLng { Latitude = 37.419734, Longitude = -122.0827784 } }
                     //Address = "Humberto Delgado Airport, Portugal"
-                    Address = previousPlace.Place.FormattedAddress
-                    //Location = new Location { LatLng = new LatLng { Latitude = previousPlace.Place.Location.Latitude, Longitude = previousPlace.Place.Location.Longitude} },
+                    //Address = previousPlace.Place.FormattedAddress
+                    Location = new Location { LatLng = new LatLng { Latitude = previousPlace.Place.Location.Latitude, Longitude = previousPlace.Place.Location.Longitude} },
                     //Address = previousPlace.Place.PlusCode.CompoundCode,
                     //PlaceId = previousPlace.Place.Id
-                    },
+                },
                 Destination = new Waypoint
                 {
                     //Location = new Location { LatLng = new LatLng { Latitude = 37.417670, Longitude = -122.079595 } }
                     //Address = "Basílica of Estrela, Praça da Estrela, 1200-667 Lisboa, Portugal"
-                    Address = currentPlace.Place.FormattedAddress
-                    //Location = new Location { LatLng = new LatLng { Latitude = currentPlace.Place.Location.Latitude, Longitude = currentPlace.Place.Location.Longitude } },
+                    //Address = currentPlace.Place.FormattedAddress
+                    Location = new Location { LatLng = new LatLng { Latitude = currentPlace.Place.Location.Latitude, Longitude = currentPlace.Place.Location.Longitude } },
                     //Address = currentPlace.Place.PlusCode.CompoundCode,
                     //PlaceId = currentPlace.Place.Id
-                    },
-                TravelMode = RouteTravelMode.Transit,
-                ComputeAlternativeRoutes = true
-                };
+                },
+                TravelMode = usePublicTransit ? RouteTravelMode.Transit : RouteTravelMode.Drive,
+                //ComputeAlternativeRoutes = true
+            };
             ComputeRoutesResponse response = client.ComputeRoutes(request, callSettings);
-            currentPlace.SecondsAwayFromPreviousPlace = response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0;
-            */
+            //currentPlace.SecondsAwayFromPreviousPlace = response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0;
+            currentPlace.MinutesAwayFromPreviousPlace = (response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0) / 60;
 
-    }
+            UpdateItineraryTimes();
+
+        }
     }
 
     private async Task DebounceSearchInput()
