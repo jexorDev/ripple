@@ -27,7 +27,6 @@ dist-ssr
 /.vscode
 /bin/Debug/net9.0
 /appsettings.Development.json
-/appsettings.json
 /bin/Release/net9.0
 /Properties/PublishProfiles/doostin-001-site1 - FTP.pubxml
 /Properties/PublishProfiles/doostin-001-site1 - FTP.pubxml.user
@@ -35,3 +34,4 @@ dist-ssr
 /Properties/PublishProfiles/doostin-001-site1 - Web Deploy.pubxml.user
 /Properties/PublishProfiles/FolderProfile.pubxml.user
 /Ripple.csproj.user
+/Properties/PublishProfiles
