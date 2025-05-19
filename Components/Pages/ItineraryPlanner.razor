@@ -11,140 +11,173 @@
 
 <PageTitle>Itinerary planner</PageTitle>
 
-<button @onclick=UpdateItineraryTimes style="float:right">Recalculate arrival/departure times</button>
+<FluentStack Orientation="Orientation.Horizontal">
+    <FluentAutocomplete TOption="Place"
+    AutoComplete="off"
+    MaxAutoHeight="200px"
+    OnOptionsSearch="@OnSearchPlacesAsync"
+    ImmediateDelay="500"
+    Multiple=false
+    @bind-SelectedOption="selectedPlace">
+        <OptionTemplate>
+            <FluentStack>
+                @context.DisplayName.Text
+                @context.FormattedAddress
+            </FluentStack>
+        </OptionTemplate>
+    </FluentAutocomplete>
 
-<div>
-    <input type="text" @bind=SearchText @bind:event="oninput" /> 
-    <button @onclick="() => SearchText = string.Empty">Clear</button>
-    <input type="checkbox" @bind=usePublicTransit />Use Public Transit
-    @if (addedPlaces.Count() == 0)
-    {
-        <div>Start by searching for a starting place for your intinerary</div>
-    }
-</div>
+    <FluentCheckbox @bind-Value=usePublicTransit Label="Use Public Transit" />
+    <FluentButton @onclick=UpdateSecondsAwayOnPlaces Appearance="Appearance.Lightweight">Recalculate arrival/departure times</FluentButton>
+</FluentStack>
 
-<table class="table" style="display: block; border: 1px solid lightgrey; max-height: 200px; overflow-y: scroll; margin-top:2px" id="foundPlacesTable">
-    <tbody>
-        @foreach (var place in foundPlaces)
+
+
+<h4>Your Itinerary for
+    <FluentDatePicker @bind-Value="ItineraryDate"></FluentDatePicker>
+    with a departure time of 
+    <FluentTimePicker @bind-Value="ItineraryTime"></FluentTimePicker>
+</h4>
+
+<FluentDragContainer TItem="AddedPlace"
+OnDropEnd="PlaceDragDropEnd">
+    <FluentGrid Spacing="1">
+        @foreach (var addedPlace in addedPlaces.OrderBy(x => x.Index))
         {
-            var p = place;
-            <tr @onclick="@(() => AddPlace(p))">
-                <td>@place.DisplayName.Text</td>                
-                <td>@place.FormattedAddress</td>                
+            <FluentGridItem sm="12">
+                <FluentCard>
+                    <FluentGrid>
+                        <FluentGridItem sm="3">
+                            <FluentDropZone Id="@addedPlace.Index.ToString()" Item="@addedPlace" Draggable="true" Droppable="true">
+                                <FluentBadge Appearance="Appearance.Accent">@addedPlace.Index</FluentBadge>
+                                @addedPlace.Place.DisplayName.Text
+                                @addedPlace.Place.FormattedAddress
 
-            </tr>
+                            </FluentDropZone>
+                        </FluentGridItem>
+                        <FluentGridItem sm="2">                                
+                            <FluentLabel>Arrival Time</FluentLabel>
+                            <FluentLabel Typo="Typography.H6" > @addedPlace.ArrivalTime.ToShortTimeString() </FluentLabel>
+                        </FluentGridItem>
+                        <FluentGridItem sm="2">
+                            <FluentLabel>Departure Time</FluentLabel>
+                            <FluentLabel Typo="Typography.H6">@addedPlace.DepartureTime.ToShortTimeString()</FluentLabel>
+
+                        </FluentGridItem>
+                        <FluentGridItem xs="6" sm="2">
+                            <FluentNumberField @bind-Value="addedPlace.VisitHours" Label="Visit Time (hrs)"></FluentNumberField>
+                        </FluentGridItem>
+                        <FluentGridItem xs="6" sm="2">
+                            <FluentNumberField @bind-Value="addedPlace.MinutesAwayFromPreviousPlace" Label="Commute Time (min)"></FluentNumberField>
+
+                        </FluentGridItem>
+
+                        <FluentGridItem xs="6" sm="1" >
+                            <FluentStack Orientation="Orientation.Vertical">
+                                <FluentAnchor Href="@addedPlace.GoogleMapsUrl" Target="_blank" Appearance="Appearance.Accent">Directions</FluentAnchor>
+                                <FluentButton @onclick="() => Delete(addedPlace)" Appearance="Appearance.Lightweight">Delete</FluentButton>
+
+                            </FluentStack>
+
+                        </FluentGridItem>
+                    </FluentGrid>
+
+                </FluentCard>
+
+            </FluentGridItem>
         }
-    </tbody>
-</table>
+    </FluentGrid>
+</FluentDragContainer>
 
-
-<h2>Your Itinerary</h2>
-
-<table class="table">
-    <thead>
-        <tr>
-            <th></th>
-            <th>Place</th>
-            <th>Visit Time</th>
-            <th>Commute Time</th>
-            <th></th>
-            <th>Arrival</th>
-            <th>Departure</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var placeStruct in addedPlaces.OrderBy(x => x.Index))
-        {
-            var ps = placeStruct;
-            <tr>
-                <td>@placeStruct.Index</td>
-                <td>@placeStruct.Place.DisplayName.Text</td>                
-                <td>
-                    @if (placeStruct.Index != 1)
-                    {
-                        <div>
-                            <input type="number" @bind=ps.VisitHours style="width:60px" /> hrs
-                        </div>                        
-                    }
-                </td>
-                <td>
-                    @if (placeStruct.Index != 1)
-                    {
-                        <span>
-                            <input type="number" @bind=ps.MinutesAwayFromPreviousPlace style="width:60px" /> min
-                        </span>
-                    }
-                </td>
-                <td>
-                    @if (placeStruct.Index != 1)
-                    {
-                        <a href="@placeStruct.GoogleMapsUrl" target="_blank">Directions</a>                        
-                    }
-                </td>
-                <td>
-                    @if (placeStruct.Index != 1)
-                    {
-                        @placeStruct.ArrivalTime.ToShortTimeString();
-                    }
-                </td>
-                <td>
-                    @if (placeStruct.Index != 1)
-                    {
-                        @placeStruct.DepartureTime.ToShortTimeString()
-
-                    }
-                    else
-                    {
-                        <span>
-                            <input type="number" @bind=StartTimeHour style="width:50px" /> : <input type="number" @bind=StartTimeMinute style="width:50px" />
-                        </span>
-                    }
-                </td>
-                <td>
-                    <button @onclick="() => Delete(ps)">Delete</button>
-                    <button @onclick="() => MoveUp(ps)">Move Up</button>
-                    <button @onclick="() => MoveDown(ps)">Move Down</button>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
 
 @code {
-    private System.DateTime StartTime = new System.DateTime(2025, 5, 16, 8, 30, 0);
 
-    private string searchText = "";
-    string SearchText
+    private System.DateTime? ItineraryDate = System.DateTime.Now;
+    private System.DateTime? ItineraryTime = System.DateTime.Now;
+
+    private void PlaceDragDropEnd(FluentDragEventArgs<AddedPlace> args)
     {
-        get => searchText;
+        var sourceIndex = args.Source.Item.Index;
+        var targetIndex = args.Target.Item.Index;
+
+        ShiftPlaces(sourceIndex, targetIndex);
+        args.Source.Item.Index = targetIndex;
+        //args.Target.Item.Index = sourceIndex;
+
+
+        StateHasChanged();
+    }
+
+    private void ShiftPlaces(int sourceIndex, int targetIndex)
+    {
+
+        if (sourceIndex < targetIndex)
+        {
+            for (int i = sourceIndex + 1; i <= targetIndex; i++)
+            {
+                var currentPlace = addedPlaces.FirstOrDefault(x => x.Index == i);
+                if (currentPlace != null)
+                {
+                    currentPlace.Index -= 1;
+                }
+            }
+        }
+        else
+        {
+            for (int i = sourceIndex - 1; i >= targetIndex; i--)
+            {
+                var currentPlace = addedPlaces.FirstOrDefault(x => x.Index == i);
+                if (currentPlace != null)
+                {
+                    currentPlace.Index += 1;
+                }
+            }
+        }
+
+
+
+
+    }
+
+    private bool loadingFoundPlaces = false;
+
+    private Place? selectedPlace
+    {
+        get => null;
         set
         {
-            searchText = value;
-            DebounceSearchInput(); 
+            if (value != null)
+            {
+                AddPlace(value);
+            }
         }
     }
 
-    int StartTimeHour
+    private async Task OnSearchPlacesAsync(OptionsSearchEventArgs<Place> e)
     {
-        get => StartTime.Hour;
-        set
+        if (string.IsNullOrWhiteSpace(e.Text))
         {
-            if (value > 23) return;
-            StartTime = new System.DateTime(2025, 5, 16, value, StartTime.Minute, 0);
+            e.Items = [];
+        }
+        else
+        {
+            loadingFoundPlaces = true;
+
+            PlacesClient client = new PlacesClientBuilder
+                {
+                    ApiKey = Configuration["GoogleAPIKey"]
+                }.Build();
+            CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "*");
+            SearchTextRequest request = new SearchTextRequest
+                {
+                    TextQuery = e.Text
+                };
+            SearchTextResponse response = client.SearchText(request, callSettings);
+            e.Items = response.Places.ToList();
+
+            loadingFoundPlaces = false;
         }
     }
-
-    int StartTimeMinute
-    {
-        get => StartTime.Minute;
-        set
-        {
-            if (value > 59) return;
-            StartTime = new System.DateTime(2025, 5, 16, StartTime.Hour, value, 0);
-        }
-    }
-
 
     private CancellationTokenSource src = new();
 
@@ -159,7 +192,7 @@
         //public long SecondsAwayFromPreviousPlace { get; set; }
         //public long MinutesAwayFromPreviousPlace => SecondsAwayFromPreviousPlace / 60;
         public Place Place { get; set; }
-        public string GoogleMapsUrl { get; set; }        
+        public string GoogleMapsUrl { get; set; }
         public long MinutesAwayFromPreviousPlace { get; set; }
         public System.DateTime ArrivalTime { get; set; }
         public System.DateTime DepartureTime { get; set; }
@@ -173,8 +206,6 @@
                 Index = nextIndex,
                 Place = place
             });
-
-        SearchText = string.Empty;
 
         UpdateSecondsAwayOnPlaces();
     }
@@ -190,26 +221,6 @@
 
     }
 
-    private void MoveUp(AddedPlace place)
-    {
-        if (place.Index == 1) return;
-        var swapPlace = addedPlaces.FirstOrDefault(x => x.Index == place.Index - 1);
-        place.Index--;
-        swapPlace.Index++;
-        UpdateSecondsAwayOnPlaces();
-
-    }
-
-    private void MoveDown(AddedPlace place)
-    {
-        if (place.Index == addedPlaces.Count()) return;
-        var swapPlace = addedPlaces.FirstOrDefault(x => x.Index == place.Index + 1);
-        place.Index++;
-        swapPlace.Index--;
-        UpdateSecondsAwayOnPlaces();
-
-    }
-
     private void UpdateItineraryTimes()
     {
         foreach (var place in addedPlaces.OrderBy(x => x.Index))
@@ -217,9 +228,9 @@
             var currentPlace = place;
             var previousPlace = addedPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
 
-            if (previousPlace == null)
+            if (previousPlace == null && ItineraryDate.HasValue && ItineraryTime.HasValue)
             {
-                currentPlace.DepartureTime = StartTime;
+                currentPlace.DepartureTime = new System.DateTime(ItineraryDate.Value.Year, ItineraryDate.Value.Month, ItineraryDate.Value.Day, ItineraryTime.Value.Hour, ItineraryTime.Value.Minute, 00);
             }
             else
             {
@@ -227,6 +238,7 @@
                 currentPlace.DepartureTime = currentPlace.ArrivalTime.AddHours(currentPlace.VisitHours);
             }
         }
+
     }
 
     private void UpdateSecondsAwayOnPlaces()
@@ -243,19 +255,19 @@
 
             if (previousPlace == null)
             {
-                //currentPlace.SecondsAwayFromPreviousPlace = 0;                
-                continue; 
+                //currentPlace.SecondsAwayFromPreviousPlace = 0;
+                continue;
             }
 
             const string GoogleMapsUrl = "https://www.google.com/maps/dir/?api=1&origin={0},{1}&origin_place_id={2}&destination={3},{4}&destination_place_id={4}&travelmode={5}";
 
             currentPlace.GoogleMapsUrl = string.Format(
-                GoogleMapsUrl, 
-                previousPlace.Place.Location.Latitude, 
-                previousPlace.Place.Location.Longitude, 
-                previousPlace.Place.Id, 
-                currentPlace.Place.Location.Latitude, 
-                currentPlace.Place.Location.Longitude, 
+                GoogleMapsUrl,
+                previousPlace.Place.Location.Latitude,
+                previousPlace.Place.Location.Longitude,
+                previousPlace.Place.Id,
+                currentPlace.Place.Location.Latitude,
+                currentPlace.Place.Location.Longitude,
                 currentPlace.Place.Id,
                 (usePublicTransit ? "transit" : "drive"));
 
@@ -263,28 +275,28 @@
 
             CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "routes.*");
             ComputeRoutesRequest request = new ComputeRoutesRequest
-            {
-                Origin = new Waypoint
                 {
+                    Origin = new Waypoint
+                    {
                     //Location = new Location { LatLng = new LatLng { Latitude = 37.419734, Longitude = -122.0827784 } }
                     //Address = "Humberto Delgado Airport, Portugal"
                     //Address = previousPlace.Place.FormattedAddress
-                    Location = new Location { LatLng = new LatLng { Latitude = previousPlace.Place.Location.Latitude, Longitude = previousPlace.Place.Location.Longitude} },
+                        Location = new Location { LatLng = new LatLng { Latitude = previousPlace.Place.Location.Latitude, Longitude = previousPlace.Place.Location.Longitude } },
                     //Address = previousPlace.Place.PlusCode.CompoundCode,
                     //PlaceId = previousPlace.Place.Id
-                },
-                Destination = new Waypoint
-                {
+                    },
+                    Destination = new Waypoint
+                    {
                     //Location = new Location { LatLng = new LatLng { Latitude = 37.417670, Longitude = -122.079595 } }
                     //Address = "Basílica of Estrela, Praça da Estrela, 1200-667 Lisboa, Portugal"
                     //Address = currentPlace.Place.FormattedAddress
-                    Location = new Location { LatLng = new LatLng { Latitude = currentPlace.Place.Location.Latitude, Longitude = currentPlace.Place.Location.Longitude } },
+                        Location = new Location { LatLng = new LatLng { Latitude = currentPlace.Place.Location.Latitude, Longitude = currentPlace.Place.Location.Longitude } },
                     //Address = currentPlace.Place.PlusCode.CompoundCode,
                     //PlaceId = currentPlace.Place.Id
-                },
-                TravelMode = usePublicTransit ? RouteTravelMode.Transit : RouteTravelMode.Drive,
+                    },
+                    TravelMode = usePublicTransit ? RouteTravelMode.Transit : RouteTravelMode.Drive,
                 //ComputeAlternativeRoutes = true
-            };
+                };
             ComputeRoutesResponse response = client.ComputeRoutes(request, callSettings);
             //currentPlace.SecondsAwayFromPreviousPlace = response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0;
             currentPlace.MinutesAwayFromPreviousPlace = (response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0) / 60;
@@ -293,35 +305,5 @@
 
         }
     }
-
-    private async Task DebounceSearchInput()
-    {
-        src.Cancel();
-        src = new();
-        await Task.Delay(1000, src.Token).ContinueWith(UpdateFoundPlaces, src.Token);
-    }
-
-    private void UpdateFoundPlaces(Task obj)
-    {
-        if (string.IsNullOrWhiteSpace(searchText))
-        {
-            foundPlaces.Clear();
-        }
-        else
-        {
-            PlacesClient client = new PlacesClientBuilder
-                {
-                    ApiKey = Configuration["GoogleAPIKey"]
-                }.Build();
-            CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "*");
-            SearchTextRequest request = new SearchTextRequest
-                {
-                    TextQuery = searchText
-                };
-            SearchTextResponse response = client.SearchText(request, callSettings);
-            foundPlaces = response.Places.ToList();            
-        }
-
-        InvokeAsync(StateHasChanged);
-    }
+   
 }

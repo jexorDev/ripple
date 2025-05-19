@@ -1,6 +1,9 @@
+using Microsoft.FluentUI.AspNetCore.Components;
 using Ripple.Components;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddHttpClient();
+builder.Services.AddFluentUIComponents();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
