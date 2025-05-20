@@ -1,0 +1,56 @@
+﻿@page "/"
+
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Ripple.DataLayer.Classes
+@using Ripple.DataLayer.Repos
+@rendermode InteractiveServer
+
+
+@inject ProtectedLocalStorage ProtectedLocalStorage
+@inject NavigationManager NavigationManager
+
+<h3>Ripple</h3>
+
+@foreach (var itinerary in itineraries)
+{
+    <FluentCard @onclick="() => MoveToSelectedItinerary(itinerary.Id)">
+
+        Edit
+    </FluentCard>
+
+}
+
+<FluentButton @onclick="async () => await AddItinerary()">Add New Itinerary</FluentButton>
+
+@code {
+    private List<Itinerary> itineraries = new List<Itinerary>();
+
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    {
+        if (isFirstRender)
+        {
+            //TODO: DI with repo
+            itineraries = await new ItineraryRepository().Get(ProtectedLocalStorage);
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddItinerary()
+    {
+        int id = itineraries.Count() + 1;
+        
+        //TODO: DI with repo
+        await new ItineraryRepository().Save(ProtectedLocalStorage, new Itinerary
+                                                                    {
+                                                                        Id = id
+                                                                    });
+        MoveToSelectedItinerary(id);
+    }
+
+    private void MoveToSelectedItinerary(int id)
+    {
+        NavigationManager.NavigateTo($"/itinerary/{id}");
+        
+    }
+
+}

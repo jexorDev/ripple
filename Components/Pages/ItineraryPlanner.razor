@@ -1,18 +1,24 @@
-﻿@page "/"
+﻿@page "/itinerary/{id:int}"
+@using System.Linq
+@using Ripple.DataLayer.Classes
+@using Ripple.DataLayer.Repos
 @using Google.Api.Gax.Grpc
 @using Google.Maps.Places.V1
-@using System.Linq
 @using Google.Maps.Routing.V2
 @using Google.Type
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @rendermode InteractiveServer
 
 @inject IConfiguration Configuration
+@inject ProtectedLocalStorage ProtectedLocalStore
+@inject NavigationManager NavigationManager
 
 
 <PageTitle>Itinerary planner</PageTitle>
 
 <FluentStack Orientation="Orientation.Horizontal">
     <FluentAutocomplete TOption="Place"
+
     AutoComplete="off"
     MaxAutoHeight="200px"
     OnOptionsSearch="@OnSearchPlacesAsync"
@@ -28,21 +34,22 @@
     </FluentAutocomplete>
 
     <FluentCheckbox @bind-Value=usePublicTransit Label="Use Public Transit" />
+    <FluentButton OnClick="async () => await Save()">Save</FluentButton>
     <FluentButton @onclick=UpdateSecondsAwayOnPlaces Appearance="Appearance.Lightweight">Recalculate arrival/departure times</FluentButton>
 </FluentStack>
 
 
 
 <h4>Your Itinerary for
-    <FluentDatePicker @bind-Value="ItineraryDate"></FluentDatePicker>
+    <FluentDatePicker @bind-Value="itinerary.ItineraryDate"></FluentDatePicker>
     with a departure time of 
-    <FluentTimePicker @bind-Value="ItineraryTime"></FluentTimePicker>
+    <FluentTimePicker @bind-Value="itinerary.ItineraryTime"></FluentTimePicker>
 </h4>
 
-<FluentDragContainer TItem="AddedPlace"
+<FluentDragContainer TItem="ItineraryPlace"
 OnDropEnd="PlaceDragDropEnd">
     <FluentGrid Spacing="1">
-        @foreach (var addedPlace in addedPlaces.OrderBy(x => x.Index))
+        @foreach (var addedPlace in itinerary.AddedPlaces.OrderBy(x => x.Index))
         {
             <FluentGridItem sm="12">
                 <FluentCard>
@@ -91,11 +98,44 @@ OnDropEnd="PlaceDragDropEnd">
 
 
 @code {
+    [Parameter]
+    public int Id { get; set; }
 
-    private System.DateTime? ItineraryDate = System.DateTime.Now;
-    private System.DateTime? ItineraryTime = System.DateTime.Now;
+    private Itinerary _backingItinerary = new Itinerary();
+    private Itinerary itinerary
+    {
+        get => _backingItinerary;
+        set
+        {
+            _backingItinerary = value;
+            StateHasChanged();
+        }
+    }
 
-    private void PlaceDragDropEnd(FluentDragEventArgs<AddedPlace> args)
+    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    {
+        if (isFirstRender)
+        {
+            var persistedItineraries = await new ItineraryRepository().Get(ProtectedLocalStore);
+            itinerary = persistedItineraries.FirstOrDefault(x => x.Id == Id);
+            if (itinerary == null) 
+            {
+                NavigationManager.NavigateTo("/");          
+            }
+            else
+            {
+                StateHasChanged();
+            }
+
+        }
+    }
+
+    private async Task Save()
+    {
+        await new ItineraryRepository().Save(ProtectedLocalStore, itinerary);
+    }
+
+    private void PlaceDragDropEnd(FluentDragEventArgs<ItineraryPlace> args)
     {
         var sourceIndex = args.Source.Item.Index;
         var targetIndex = args.Target.Item.Index;
@@ -115,7 +155,7 @@ OnDropEnd="PlaceDragDropEnd">
         {
             for (int i = sourceIndex + 1; i <= targetIndex; i++)
             {
-                var currentPlace = addedPlaces.FirstOrDefault(x => x.Index == i);
+                var currentPlace = itinerary.AddedPlaces.FirstOrDefault(x => x.Index == i);
                 if (currentPlace != null)
                 {
                     currentPlace.Index -= 1;
@@ -126,7 +166,7 @@ OnDropEnd="PlaceDragDropEnd">
         {
             for (int i = sourceIndex - 1; i >= targetIndex; i--)
             {
-                var currentPlace = addedPlaces.FirstOrDefault(x => x.Index == i);
+                var currentPlace = itinerary.AddedPlaces.FirstOrDefault(x => x.Index == i);
                 if (currentPlace != null)
                 {
                     currentPlace.Index += 1;
@@ -139,13 +179,13 @@ OnDropEnd="PlaceDragDropEnd">
 
     }
 
-    private bool loadingFoundPlaces = false;
-
+    private Place? _backingPlace;
     private Place? selectedPlace
     {
         get => null;
         set
         {
+            _backingPlace = value;
             if (value != null)
             {
                 AddPlace(value);
@@ -161,7 +201,6 @@ OnDropEnd="PlaceDragDropEnd">
         }
         else
         {
-            loadingFoundPlaces = true;
 
             PlacesClient client = new PlacesClientBuilder
                 {
@@ -175,33 +214,18 @@ OnDropEnd="PlaceDragDropEnd">
             SearchTextResponse response = client.SearchText(request, callSettings);
             e.Items = response.Places.ToList();
 
-            loadingFoundPlaces = false;
         }
     }
 
-    private CancellationTokenSource src = new();
 
-    private List<Place> foundPlaces = new List<Place>();
-    private List<AddedPlace> addedPlaces = new List<AddedPlace>();
     private bool usePublicTransit = false;
 
-    private class AddedPlace
-    {
-        public int Index { get; set; }
-        public double VisitHours { get; set; }
-        //public long SecondsAwayFromPreviousPlace { get; set; }
-        //public long MinutesAwayFromPreviousPlace => SecondsAwayFromPreviousPlace / 60;
-        public Place Place { get; set; }
-        public string GoogleMapsUrl { get; set; }
-        public long MinutesAwayFromPreviousPlace { get; set; }
-        public System.DateTime ArrivalTime { get; set; }
-        public System.DateTime DepartureTime { get; set; }
-    }
+
 
     private void AddPlace(Place place)
     {
-        int nextIndex = addedPlaces.Count + 1;
-        addedPlaces.Add(new AddedPlace
+        int nextIndex = itinerary.AddedPlaces.Count + 1;
+        itinerary.AddedPlaces.Add(new ItineraryPlace
             {
                 Index = nextIndex,
                 Place = place
@@ -210,10 +234,10 @@ OnDropEnd="PlaceDragDropEnd">
         UpdateSecondsAwayOnPlaces();
     }
 
-    private void Delete(AddedPlace place)
+    private void Delete(ItineraryPlace place)
     {
-        addedPlaces.Remove(place);
-        foreach (var addedPlace in addedPlaces.Where(x => x.Index > place.Index))
+        itinerary.AddedPlaces.Remove(place);
+        foreach (var addedPlace in itinerary.AddedPlaces.Where(x => x.Index > place.Index))
         {
             addedPlace.Index--;
         }
@@ -223,14 +247,14 @@ OnDropEnd="PlaceDragDropEnd">
 
     private void UpdateItineraryTimes()
     {
-        foreach (var place in addedPlaces.OrderBy(x => x.Index))
+        foreach (var place in itinerary.AddedPlaces.OrderBy(x => x.Index))
         {
             var currentPlace = place;
-            var previousPlace = addedPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
+            var previousPlace = itinerary.AddedPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
 
-            if (previousPlace == null && ItineraryDate.HasValue && ItineraryTime.HasValue)
+            if (previousPlace == null && itinerary.ItineraryDate.HasValue && itinerary.ItineraryTime.HasValue)
             {
-                currentPlace.DepartureTime = new System.DateTime(ItineraryDate.Value.Year, ItineraryDate.Value.Month, ItineraryDate.Value.Day, ItineraryTime.Value.Hour, ItineraryTime.Value.Minute, 00);
+                currentPlace.DepartureTime = new System.DateTime(itinerary.ItineraryDate.Value.Year, itinerary.ItineraryDate.Value.Month, itinerary.ItineraryDate.Value.Day, itinerary.ItineraryTime.Value.Hour, itinerary.ItineraryTime.Value.Minute, 00);
             }
             else
             {
@@ -248,10 +272,10 @@ OnDropEnd="PlaceDragDropEnd">
                 ApiKey = Configuration["GoogleAPIKey"]
             }.Build();
 
-        foreach (var place in addedPlaces.OrderBy(x => x.Index))
+        foreach (var place in itinerary.AddedPlaces.OrderBy(x => x.Index))
         {
             var currentPlace = place;
-            var previousPlace = addedPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
+            var previousPlace = itinerary.AddedPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
 
             if (previousPlace == null)
             {
