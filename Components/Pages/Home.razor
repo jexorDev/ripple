@@ -3,48 +3,65 @@
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @using Ripple.DataLayer.Classes
 @using Ripple.DataLayer.Repos
+@using Ripple.Utility
 @rendermode InteractiveServer
 
 
 @inject ProtectedLocalStorage ProtectedLocalStorage
 @inject NavigationManager NavigationManager
+@inject IConfiguration Configuration
 
 <h3>Ripple</h3>
 
+<FluentGrid>
 @foreach (var itinerary in itineraries)
 {
-    <FluentCard @onclick="() => MoveToSelectedItinerary(itinerary.Id)">
+    <FluentGridItem sm="3">
+        <FluentCard>
+            @itinerary.Name
+            @itinerary.ItineraryDate
+            <FluentButton @onclick="() => MoveToSelectedItinerary(itinerary.Id)" Appearance="Appearance.Lightweight">Edit</FluentButton>
+        </FluentCard>
 
-        Edit
-    </FluentCard>
+    </FluentGridItem>
 
 }
 
-<FluentButton @onclick="async () => await AddItinerary()">Add New Itinerary</FluentButton>
+    <FluentGridItem sm="3">
+        <FluentCard>
+            <FluentButton @onclick="() => AddItinerary()" Appearance="Appearance.Lightweight">Add New</FluentButton>
+        </FluentCard>
+
+    </FluentGridItem>
+
+</FluentGrid>
+
 
 @code {
     private List<Itinerary> itineraries = new List<Itinerary>();
 
-    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    protected override void OnAfterRender(bool isFirstRender)
     {
         if (isFirstRender)
         {
-            //TODO: DI with repo
-            itineraries = await new ItineraryRepository().Get(ProtectedLocalStorage);
-            StateHasChanged();
+            LoadItineraries();
+
         }
     }
 
-    private async Task AddItinerary()
+    private void LoadItineraries()
     {
-        int id = itineraries.Count() + 1;
-        
-        //TODO: DI with repo
-        await new ItineraryRepository().Save(ProtectedLocalStorage, new Itinerary
-                                                                    {
-                                                                        Id = id
-                                                                    });
-        MoveToSelectedItinerary(id);
+        using (var connection = new DatabaseConnectionProvider(Configuration))
+        {
+            itineraries = new ItineraryRepository().Get(null, connection.GetConnection());
+        }
+
+        StateHasChanged();        
+    }
+
+    private void AddItinerary()
+    {
+        NavigationManager.NavigateTo($"/itinerary");
     }
 
     private void MoveToSelectedItinerary(int id)

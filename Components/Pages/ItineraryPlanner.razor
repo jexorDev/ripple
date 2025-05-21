@@ -1,4 +1,4 @@
-﻿@page "/itinerary/{id:int}"
+﻿@page "/itinerary/{id:int?}"
 @using System.Linq
 @using Ripple.DataLayer.Classes
 @using Ripple.DataLayer.Repos
@@ -7,24 +7,23 @@
 @using Google.Maps.Routing.V2
 @using Google.Type
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Ripple.Utility
 @rendermode InteractiveServer
 
 @inject IConfiguration Configuration
-@inject ProtectedLocalStorage ProtectedLocalStore
+@inject ProtectedLocalStorage ProtectedLocalStorage
 @inject NavigationManager NavigationManager
 
 
 <PageTitle>Itinerary planner</PageTitle>
 
+
 <FluentStack Orientation="Orientation.Horizontal">
     <FluentAutocomplete TOption="Place"
-
-    AutoComplete="off"
-    MaxAutoHeight="200px"
-    OnOptionsSearch="@OnSearchPlacesAsync"
-    ImmediateDelay="500"
-    Multiple=false
-    @bind-SelectedOption="selectedPlace">
+                        OnOptionsSearch="@OnSearchPlacesAsync"
+                        ImmediateDelay="500"
+                        Multiple=false
+                        @bind-SelectedOption="selectedPlace">
         <OptionTemplate>
             <FluentStack>
                 @context.DisplayName.Text
@@ -32,22 +31,21 @@
             </FluentStack>
         </OptionTemplate>
     </FluentAutocomplete>
+    <FluentButton @onclick=UpdateSecondsAwayOnPlaces>Recalculate arrival/departure times</FluentButton>
 
+</FluentStack>
+
+<FluentStack Orientation="Orientation.Horizontal" >
+    <FluentTextField @bind-Value="itinerary.Name" Label="Name"></FluentTextField>
+    <FluentDatePicker @bind-Value="itinerary.ItineraryDate" Label="Start Date"></FluentDatePicker>
+    <FluentTimePicker @bind-Value="itinerary.ItineraryTime" Label="Start Time"></FluentTimePicker>
     <FluentCheckbox @bind-Value=usePublicTransit Label="Use Public Transit" />
-    <FluentButton OnClick="async () => await Save()">Save</FluentButton>
-    <FluentButton @onclick=UpdateSecondsAwayOnPlaces Appearance="Appearance.Lightweight">Recalculate arrival/departure times</FluentButton>
+    <FluentSpacer></FluentSpacer>
+    <FluentButton @onclick="Save" Appearance="Appearance.Accent">Save</FluentButton>
 </FluentStack>
 
 
-
-<h4>Your Itinerary for
-    <FluentDatePicker @bind-Value="itinerary.ItineraryDate"></FluentDatePicker>
-    with a departure time of 
-    <FluentTimePicker @bind-Value="itinerary.ItineraryTime"></FluentTimePicker>
-</h4>
-
-<FluentDragContainer TItem="ItineraryPlace"
-OnDropEnd="PlaceDragDropEnd">
+<FluentDragContainer TItem="ItineraryPlace" OnDropEnd="PlaceDragDropEnd">
     <FluentGrid Spacing="1">
         @foreach (var addedPlace in itinerary.AddedPlaces.OrderBy(x => x.Index))
         {
@@ -62,9 +60,9 @@ OnDropEnd="PlaceDragDropEnd">
 
                             </FluentDropZone>
                         </FluentGridItem>
-                        <FluentGridItem sm="2">                                
+                        <FluentGridItem sm="2">
                             <FluentLabel>Arrival Time</FluentLabel>
-                            <FluentLabel Typo="Typography.H6" > @addedPlace.ArrivalTime.ToShortTimeString() </FluentLabel>
+                            <FluentLabel Typo="Typography.H6"> @addedPlace.ArrivalTime.ToShortTimeString() </FluentLabel>
                         </FluentGridItem>
                         <FluentGridItem sm="2">
                             <FluentLabel>Departure Time</FluentLabel>
@@ -79,9 +77,9 @@ OnDropEnd="PlaceDragDropEnd">
 
                         </FluentGridItem>
 
-                        <FluentGridItem xs="6" sm="1" >
+                        <FluentGridItem xs="6" sm="1">
                             <FluentStack Orientation="Orientation.Vertical">
-                                <FluentAnchor Href="@addedPlace.GoogleMapsUrl" Target="_blank" Appearance="Appearance.Accent">Directions</FluentAnchor>
+                                <FluentAnchor Href="@addedPlace.GoogleMapsUrl" Target="_blank" Appearance="Appearance.Lightweight">Directions</FluentAnchor>
                                 <FluentButton @onclick="() => Delete(addedPlace)" Appearance="Appearance.Lightweight">Delete</FluentButton>
 
                             </FluentStack>
@@ -99,7 +97,7 @@ OnDropEnd="PlaceDragDropEnd">
 
 @code {
     [Parameter]
-    public int Id { get; set; }
+    public int? Id { get; set; }
 
     private Itinerary _backingItinerary = new Itinerary();
     private Itinerary itinerary
@@ -116,24 +114,54 @@ OnDropEnd="PlaceDragDropEnd">
     {
         if (isFirstRender)
         {
-            var persistedItineraries = await new ItineraryRepository().Get(ProtectedLocalStore);
-            itinerary = persistedItineraries.FirstOrDefault(x => x.Id == Id);
-            if (itinerary == null) 
+            if (Id.HasValue)
             {
-                NavigationManager.NavigateTo("/");          
+                using (var connection = new DatabaseConnectionProvider(Configuration))
+                {
+                    itinerary = new ItineraryRepository().Get(Id.Value, connection.GetConnection()).FirstOrDefault();
+                    itinerary.AddedPlaces = new ItineraryPlacesRepository().Get(Id.Value, connection.GetConnection());
+                }
             }
             else
             {
-                StateHasChanged();
+                itinerary.Name = "My Itinerary";
+                itinerary.ItineraryDate = System.DateTime.Now;
+                itinerary.ItineraryTime = System.DateTime.Now;
             }
+
+            StateHasChanged();
 
         }
     }
 
-    private async Task Save()
+    private void Save()
     {
-        await new ItineraryRepository().Save(ProtectedLocalStore, itinerary);
+        using (var connection = new DatabaseConnectionProvider(Configuration))
+        {
+            var placeRepo = new PlaceRepository();
+            var itineraryPlaceRepo = new ItineraryPlacesRepository();
+
+            connection.SetTransaction();
+
+            if (!Id.HasValue)
+            {
+                Id = new ItineraryRepository().Create(itinerary, connection.GetConnection());
+            }
+            else
+            {
+                itineraryPlaceRepo.DeleteAllPlaces(Id.Value, connection.GetConnection());
+            }
+
+            foreach (var place in itinerary.AddedPlaces)
+            {
+                placeRepo.Save(place.Place, connection.GetConnection());
+                itineraryPlaceRepo.Save(place, Id.Value, connection.GetConnection());
+            }
+
+            connection.CompleteTransaction();
+        }
     }
+
 
     private void PlaceDragDropEnd(FluentDragEventArgs<ItineraryPlace> args)
     {
@@ -142,8 +170,6 @@ OnDropEnd="PlaceDragDropEnd">
 
         ShiftPlaces(sourceIndex, targetIndex);
         args.Source.Item.Index = targetIndex;
-        //args.Target.Item.Index = sourceIndex;
-
 
         StateHasChanged();
     }
@@ -173,10 +199,6 @@ OnDropEnd="PlaceDragDropEnd">
                 }
             }
         }
-
-
-
-
     }
 
     private Place? _backingPlace;
@@ -329,5 +351,5 @@ OnDropEnd="PlaceDragDropEnd">
 
         }
     }
-   
+
 }

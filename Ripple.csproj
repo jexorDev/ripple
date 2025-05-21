@@ -10,6 +10,8 @@
     <PackageReference Include="Google.Maps.Places.V1" Version="1.0.0-beta14" />
     <PackageReference Include="Google.Maps.Routing.V2" Version="1.0.0" />
     <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.11.9" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Npgsql" Version="9.0.3" />
   </ItemGroup>
 
 </Project>
