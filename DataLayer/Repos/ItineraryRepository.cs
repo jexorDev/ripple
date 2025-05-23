@@ -83,6 +83,32 @@ RETURNING id";
                 return null;
 
             }
-        }       
+        }
+
+        public void Update(Itinerary itinerary, IDbConnection connection)
+        {
+            const string sql = @"
+update
+    itineraries
+set
+     name = @name
+    ,start_date = @start_date
+    ,start_time = @start_time
+where
+    id = @id";
+
+            var itineraries = new List<Itinerary>();
+
+            using (var cmd = new NpgsqlCommand(sql, (NpgsqlConnection)connection))
+            {
+                cmd.Parameters.AddWithValue("@id", itinerary.Id);
+                cmd.Parameters.AddWithValue("@name", itinerary.Name);
+                cmd.Parameters.AddWithValue("@start_date", itinerary.ItineraryDate);
+                cmd.Parameters.AddWithValue("@start_time", itinerary.ItineraryTime);
+
+                cmd.ExecuteNonQuery();                
+
+            }
+        }
     }
 }

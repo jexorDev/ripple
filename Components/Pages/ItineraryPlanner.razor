@@ -17,13 +17,14 @@
 
 <PageTitle>Itinerary planner</PageTitle>
 
+<FluentToolbar Style="width:100%">
 
-<FluentStack Orientation="Orientation.Horizontal">
     <FluentAutocomplete TOption="Place"
-                        OnOptionsSearch="@OnSearchPlacesAsync"
-                        ImmediateDelay="500"
-                        Multiple=false
-                        @bind-SelectedOption="selectedPlace">
+    OnOptionsSearch="@OnSearchPlacesAsync"
+    ImmediateDelay="500"
+    Style="max-width:500px"
+    Multiple=false
+    @bind-SelectedOption="selectedPlace">
         <OptionTemplate>
             <FluentStack>
                 @context.DisplayName.Text
@@ -32,17 +33,19 @@
         </OptionTemplate>
     </FluentAutocomplete>
     <FluentButton @onclick=UpdateSecondsAwayOnPlaces>Recalculate arrival/departure times</FluentButton>
+    <FluentButton slot="end" @onclick="Save" Appearance="Appearance.Accent">Save</FluentButton>
+    <FluentButton slot="end" Appearance="Appearance.Outline">Home</FluentButton>
 
-</FluentStack>
+</FluentToolbar>
 
-<FluentStack Orientation="Orientation.Horizontal" >
+
+
+<FluentToolbar Style="width:100%">
     <FluentTextField @bind-Value="itinerary.Name" Label="Name"></FluentTextField>
     <FluentDatePicker @bind-Value="itinerary.ItineraryDate" Label="Start Date"></FluentDatePicker>
     <FluentTimePicker @bind-Value="itinerary.ItineraryTime" Label="Start Time"></FluentTimePicker>
-    <FluentCheckbox @bind-Value=usePublicTransit Label="Use Public Transit" />
-    <FluentSpacer></FluentSpacer>
-    <FluentButton @onclick="Save" Appearance="Appearance.Accent">Save</FluentButton>
-</FluentStack>
+    @* <FluentCheckbox @bind-Value=usePublicTransit Label="Use Public Transit" /> *@
+</FluentToolbar>
 
 
 <FluentDragContainer TItem="ItineraryPlace" OnDropEnd="PlaceDragDropEnd">
@@ -140,15 +143,17 @@
         {
             var placeRepo = new PlaceRepository();
             var itineraryPlaceRepo = new ItineraryPlacesRepository();
+            var itineraryRepo = new ItineraryRepository();
 
             connection.SetTransaction();
 
             if (!Id.HasValue)
             {
-                Id = new ItineraryRepository().Create(itinerary, connection.GetConnection());
+                Id = itineraryRepo.Create(itinerary, connection.GetConnection());
             }
             else
             {
+                itineraryRepo.Update(itinerary, connection.GetConnection());
                 itineraryPlaceRepo.DeleteAllPlaces(Id.Value, connection.GetConnection());
             }
 
@@ -289,7 +294,7 @@
 
     private void UpdateSecondsAwayOnPlaces()
     {
-        RoutesClient client = new RoutesClientBuilder
+        RoutesClient googleRoutesClient = new RoutesClientBuilder
             {
                 ApiKey = Configuration["GoogleAPIKey"]
             }.Build();
@@ -318,38 +323,46 @@
                 (usePublicTransit ? "transit" : "drive"));
 
 
-
-            CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "routes.*");
-            ComputeRoutesRequest request = new ComputeRoutesRequest
-                {
-                    Origin = new Waypoint
-                    {
-                    //Location = new Location { LatLng = new LatLng { Latitude = 37.419734, Longitude = -122.0827784 } }
-                    //Address = "Humberto Delgado Airport, Portugal"
-                    //Address = previousPlace.Place.FormattedAddress
-                        Location = new Location { LatLng = new LatLng { Latitude = previousPlace.Place.Location.Latitude, Longitude = previousPlace.Place.Location.Longitude } },
-                    //Address = previousPlace.Place.PlusCode.CompoundCode,
-                    //PlaceId = previousPlace.Place.Id
-                    },
-                    Destination = new Waypoint
-                    {
-                    //Location = new Location { LatLng = new LatLng { Latitude = 37.417670, Longitude = -122.079595 } }
-                    //Address = "Basílica of Estrela, Praça da Estrela, 1200-667 Lisboa, Portugal"
-                    //Address = currentPlace.Place.FormattedAddress
-                        Location = new Location { LatLng = new LatLng { Latitude = currentPlace.Place.Location.Latitude, Longitude = currentPlace.Place.Location.Longitude } },
-                    //Address = currentPlace.Place.PlusCode.CompoundCode,
-                    //PlaceId = currentPlace.Place.Id
-                    },
-                    TravelMode = usePublicTransit ? RouteTravelMode.Transit : RouteTravelMode.Drive,
-                //ComputeAlternativeRoutes = true
-                };
-            ComputeRoutesResponse response = client.ComputeRoutes(request, callSettings);
-            //currentPlace.SecondsAwayFromPreviousPlace = response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0;
-            currentPlace.MinutesAwayFromPreviousPlace = (response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0) / 60;
-
-            UpdateItineraryTimes();
+            if (!currentPlace.Place.PostalAddress.RegionCode.Equals("JP"))
+            {
+                SetCommuteTimeFromGoogle(currentPlace, previousPlace, googleRoutesClient);
+            }
 
         }
+        UpdateItineraryTimes();
+    }
+
+    private void SetCommuteTimeFromGoogle(ItineraryPlace currentPlace, ItineraryPlace previousPlace, RoutesClient client)
+    {
+
+        CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "routes.*");
+        ComputeRoutesRequest request = new ComputeRoutesRequest
+            {
+                Origin = new Waypoint
+                {
+                //Location = new Location { LatLng = new LatLng { Latitude = 37.419734, Longitude = -122.0827784 } }
+                //Address = "Humberto Delgado Airport, Portugal"
+                //Address = previousPlace.Place.FormattedAddress
+                    Location = new Location { LatLng = new LatLng { Latitude = previousPlace.Place.Location.Latitude, Longitude = previousPlace.Place.Location.Longitude } },
+                //Address = previousPlace.Place.PlusCode.CompoundCode,
+                //PlaceId = previousPlace.Place.Id
+                },
+                Destination = new Waypoint
+                {
+                //Location = new Location { LatLng = new LatLng { Latitude = 37.417670, Longitude = -122.079595 } }
+                //Address = "Basílica of Estrela, Praça da Estrela, 1200-667 Lisboa, Portugal"
+                //Address = currentPlace.Place.FormattedAddress
+                    Location = new Location { LatLng = new LatLng { Latitude = currentPlace.Place.Location.Latitude, Longitude = currentPlace.Place.Location.Longitude } },
+                //Address = currentPlace.Place.PlusCode.CompoundCode,
+                //PlaceId = currentPlace.Place.Id
+                },
+                TravelMode = usePublicTransit ? RouteTravelMode.Transit : RouteTravelMode.Drive,
+            //ComputeAlternativeRoutes = true
+            };
+        ComputeRoutesResponse response = client.ComputeRoutes(request, callSettings);
+        //currentPlace.SecondsAwayFromPreviousPlace = response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0;
+        currentPlace.MinutesAwayFromPreviousPlace = (response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0) / 60;
+
     }
 
 }
