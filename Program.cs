@@ -1,10 +1,11 @@
 using Microsoft.FluentUI.AspNetCore.Components;
+using Microsoft.FluentUI.AspNetCore.Components.Components.Tooltip;
 using Ripple.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient();
 builder.Services.AddFluentUIComponents();
-
+builder.Services.AddScoped<ITooltipService, TooltipService>();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
