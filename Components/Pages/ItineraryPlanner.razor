@@ -13,89 +13,163 @@
 @inject IConfiguration Configuration
 @inject ProtectedLocalStorage ProtectedLocalStorage
 @inject NavigationManager NavigationManager
+@inject IToastService ToastService
 
-
-<PageTitle>Itinerary planner</PageTitle>
-
-<FluentToolbar Style="width:100%">
-
-    <FluentAutocomplete TOption="Place"
-    OnOptionsSearch="@OnSearchPlacesAsync"
-    ImmediateDelay="500"
-    Style="max-width:500px"
-    Multiple=false
-    @bind-SelectedOption="selectedPlace">
-        <OptionTemplate>
-            <FluentStack>
-                @context.DisplayName.Text
-                @context.FormattedAddress
-            </FluentStack>
-        </OptionTemplate>
-    </FluentAutocomplete>
-    <FluentButton @onclick=UpdateSecondsAwayOnPlaces>Recalculate arrival/departure times</FluentButton>
-    <FluentButton slot="end" @onclick="Save" Appearance="Appearance.Accent">Save</FluentButton>
-    <FluentButton slot="end" Appearance="Appearance.Outline">Home</FluentButton>
-
-</FluentToolbar>
+<PageTitle>Ripple Itinerary Planner</PageTitle>
 
 
 
-<FluentToolbar Style="width:100%">
-    <FluentTextField @bind-Value="itinerary.Name" Label="Name"></FluentTextField>
-    <FluentDatePicker @bind-Value="itinerary.ItineraryDate" Label="Start Date"></FluentDatePicker>
-    <FluentTimePicker @bind-Value="itinerary.ItineraryTime" Label="Start Time"></FluentTimePicker>
-    @* <FluentCheckbox @bind-Value=usePublicTransit Label="Use Public Transit" /> *@
-</FluentToolbar>
+<FluentGrid>
+    <FluentGridItem sm="5">
+
+        <FluentButton Appearance="Appearance.Lightweight" class="h2" Style="margin-top:5px" @onclick=GoHome>Ripple</FluentButton>
+    </FluentGridItem>
+    <FluentGridItem sm="7" xs="12">
+        <FluentAutocomplete TOption="Place"
+                            Label="Search places"
+                            Position="SelectPosition.Below"
+                            OnOptionsSearch="@OnSearchPlacesAsync"
+                            ImmediateDelay="500"
+                            Style="max-width:500px"
+                            Multiple=false
+                            @bind-SelectedOption="selectedPlace">
+            <OptionTemplate>
+                <FluentStack>
+                    @context.DisplayName.Text
+                    @context.FormattedAddress
+                </FluentStack>
+            </OptionTemplate>
+        </FluentAutocomplete>
+
+    </FluentGridItem>
 
 
-<FluentDragContainer TItem="ItineraryPlace" OnDropEnd="PlaceDragDropEnd">
-    <FluentGrid Spacing="1">
-        @foreach (var addedPlace in itinerary.AddedPlaces.OrderBy(x => x.Index))
+
+
+    <FluentGridItem sm="2" xs="12">
+        <FluentCard>
+            <div class="h3">Your Itinerary</div>
+            <FluentTextField @bind-Value="itinerary.Name" Label="Name"></FluentTextField>
+            <FluentDatePicker @bind-Value="itinerary.ItineraryDate" Label="Start Date"></FluentDatePicker>
+            <FluentTimePicker @bind-Value="itinerary.ItineraryTime" Label="Start Time"></FluentTimePicker>
+            @* <FluentCheckbox @bind-Value=usePublicTransit Label="Use Public Transit" /> *@
+            <FluentButton @onclick=UpdateSecondsAwayOnPlaces Appearance="Appearance.Outline" Style="margin-top:5px;width:100%">Recalc. arrival/departure</FluentButton>
+            <FluentButton @onclick="Save" Appearance="Appearance.Accent" Style="margin-top:2px;width:100%">Save</FluentButton>
+        </FluentCard>
+
+    </FluentGridItem>
+    <FluentGridItem sm="10" xs="12">
+        @if (itinerary.AddedPlaces.Count == 0)
         {
-            <FluentGridItem sm="12">
-                <FluentCard>
-                    <FluentGrid>
-                        <FluentGridItem sm="3">
-                            <FluentDropZone Id="@addedPlace.Index.ToString()" Item="@addedPlace" Draggable="true" Droppable="true">
-                                <FluentBadge Appearance="Appearance.Accent">@addedPlace.Index</FluentBadge>
-                                @addedPlace.Place.DisplayName.Text
-                                @addedPlace.Place.FormattedAddress
-
-                            </FluentDropZone>
-                        </FluentGridItem>
-                        <FluentGridItem sm="2">
-                            <FluentLabel>Arrival Time</FluentLabel>
-                            <FluentLabel Typo="Typography.H6"> @addedPlace.ArrivalTime.ToShortTimeString() </FluentLabel>
-                        </FluentGridItem>
-                        <FluentGridItem sm="2">
-                            <FluentLabel>Departure Time</FluentLabel>
-                            <FluentLabel Typo="Typography.H6">@addedPlace.DepartureTime.ToShortTimeString()</FluentLabel>
-
-                        </FluentGridItem>
-                        <FluentGridItem xs="6" sm="2">
-                            <FluentNumberField @bind-Value="addedPlace.VisitHours" Label="Visit Time (hrs)"></FluentNumberField>
-                        </FluentGridItem>
-                        <FluentGridItem xs="6" sm="2">
-                            <FluentNumberField @bind-Value="addedPlace.MinutesAwayFromPreviousPlace" Label="Commute Time (min)"></FluentNumberField>
-
-                        </FluentGridItem>
-
-                        <FluentGridItem xs="6" sm="1">
-                            <FluentStack Orientation="Orientation.Vertical">
-                                <FluentAnchor Href="@addedPlace.GoogleMapsUrl" Target="_blank" Appearance="Appearance.Lightweight">Directions</FluentAnchor>
-                                <FluentButton @onclick="() => Delete(addedPlace)" Appearance="Appearance.Lightweight">Delete</FluentButton>
-
-                            </FluentStack>
-
-                        </FluentGridItem>
-                    </FluentGrid>
-
-                </FluentCard>
-
-            </FluentGridItem>
+            <div class="h2" style="font-style:italic; color:grey; text-align:center">Places will appear here once you add them from the search bar above</div>
+            <div class="h4" style="font-style:italic; color:grey; text-align:center">Make sure to use the blue save button often to save changes</div>
         }
-    </FluentGrid>
-</FluentDragContainer>
+        
+        <FluentDragContainer TItem="ItineraryPlace" OnDropEnd="PlaceDragDropEnd">
+            <FluentGrid Spacing="1">
+                @foreach (var addedPlace in itinerary.AddedPlaces.OrderBy(x => x.Index))
+                {
+                    <FluentGridItem sm="12">
+                        @if (addedPlace.Index == 1)
+                        {
+                            <FluentCard>
+                                <FluentGrid>
+                                    <FluentGridItem sm="3">
+                                        <FluentDropZone Id="@addedPlace.Index.ToString()" Item="@addedPlace" Draggable="true" Droppable="true">
+                                            <FluentBadge Appearance="Appearance.Accent">@addedPlace.Index</FluentBadge>
+                                            @addedPlace.Place.DisplayName.Text
+                                            @addedPlace.Place.FormattedAddress
+
+                                        </FluentDropZone>
+                                    </FluentGridItem>
+                                    <FluentGridItem sm="2">
+                                        <FluentBadge Fill="blah" BackgroundColor="mediumseagreen" Color="white">Start</FluentBadge>
+                                    </FluentGridItem>
+                                    <FluentGridItem sm="2">
+                                        <FluentLabel>Departure Time</FluentLabel>
+                                        <FluentLabel Typo="Typography.H6">@addedPlace.DepartureTime.ToShortTimeString()</FluentLabel>
+
+                                    </FluentGridItem>
+                                    <FluentGridItem xs="6" sm="2">
+                                    </FluentGridItem>
+                                    <FluentGridItem xs="6" sm="2">
+
+                                    </FluentGridItem>
+
+                                    <FluentGridItem xs="6" sm="1">
+                                        <FluentStack Orientation="Orientation.Vertical">
+                                            <FluentButton @onclick="() => Delete(addedPlace)" Appearance="Appearance.Lightweight">Delete</FluentButton>
+
+                                        </FluentStack>
+
+                                    </FluentGridItem>
+                                </FluentGrid>
+
+                            </FluentCard>
+                        }
+                        else
+                        {
+                            <FluentCard>
+                                <FluentGrid>
+                                    <FluentGridItem sm="3">
+                                        <FluentDropZone Id="@addedPlace.Index.ToString()" Item="@addedPlace" Draggable="true" Droppable="true">
+                                            <FluentBadge Appearance="Appearance.Accent">@addedPlace.Index</FluentBadge>
+                                            @addedPlace.Place.DisplayName.Text
+                                            @addedPlace.Place.FormattedAddress
+
+                                        </FluentDropZone>
+                                    </FluentGridItem>
+                                    <FluentGridItem sm="2">
+                                        <FluentLabel>Arrival Time</FluentLabel>
+                                        <FluentLabel Typo="Typography.H6"> @addedPlace.ArrivalTime.ToShortTimeString() </FluentLabel>
+                                    </FluentGridItem>
+                                    <FluentGridItem sm="2">
+                                        @if (addedPlace.Index == itinerary.AddedPlaces.Count())
+                                        {
+                                            <FluentBadge Fill="blah" BackgroundColor="crimson" Color="white">End</FluentBadge>
+                                        }
+                                        else
+                                        {
+                                            <FluentLabel>Departure Time</FluentLabel>
+                                            <FluentLabel Typo="Typography.H6">@addedPlace.DepartureTime.ToShortTimeString()</FluentLabel>
+                                        }
+
+                                    </FluentGridItem>
+                                    <FluentGridItem xs="6" sm="2">
+                                        <FluentNumberField @bind-Value="addedPlace.VisitHours" Label="Visit Time (hrs)"></FluentNumberField>
+                                    </FluentGridItem>
+                                    <FluentGridItem xs="6" sm="2">
+                                        <FluentNumberField @bind-Value="addedPlace.MinutesAwayFromPreviousPlace" Label="Commute Time (min)"></FluentNumberField>
+
+                                    </FluentGridItem>
+
+                                    <FluentGridItem xs="6" sm="1">
+                                        <FluentStack Orientation="Orientation.Vertical">
+                                            <FluentAnchor Href="@addedPlace.GoogleMapsUrl" Target="_blank" Appearance="Appearance.Lightweight">Directions</FluentAnchor>
+                                            <FluentButton @onclick="() => Delete(addedPlace)" Appearance="Appearance.Lightweight">Delete</FluentButton>
+
+                                        </FluentStack>
+
+                                    </FluentGridItem>
+                                </FluentGrid>
+
+                            </FluentCard>
+
+                        }
+
+                    </FluentGridItem>
+                }
+            </FluentGrid>
+        </FluentDragContainer>
+    </FluentGridItem>
+</FluentGrid>
+
+
+
+
+
+
+
 
 
 @code {
@@ -112,6 +186,8 @@
             StateHasChanged();
         }
     }
+
+    private void GoHome() => NavigationManager.NavigateTo("/");
 
     protected override async Task OnAfterRenderAsync(bool isFirstRender)
     {
@@ -164,6 +240,8 @@
             }
 
             connection.CompleteTransaction();
+
+            ToastService.ShowToast(ToastIntent.Success, "Itinerary successfully saved");
         }
     }
 
@@ -289,6 +367,8 @@
                 currentPlace.DepartureTime = currentPlace.ArrivalTime.AddHours(currentPlace.VisitHours);
             }
         }
+
+        ToastService.ShowToast(ToastIntent.Info, "Departure and arrival times on places are now up to date");
 
     }
 

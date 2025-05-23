@@ -11,16 +11,20 @@
 @inject NavigationManager NavigationManager
 @inject IConfiguration Configuration
 
-<h3>Ripple</h3>
+<PageTitle>Ripple Home</PageTitle>
 
 <FluentGrid>
+    <FluentGridItem sm="12">
+        <div class="h2">Ripple</div>
+    </FluentGridItem>
+
 @foreach (var itinerary in itineraries)
 {
-    <FluentGridItem sm="3">
+    <FluentGridItem sm="3" xs="12">
         <FluentCard>
-            @itinerary.Name
-            @itinerary.ItineraryDate
-            <FluentButton @onclick="() => MoveToSelectedItinerary(itinerary.Id)" Appearance="Appearance.Lightweight">Edit</FluentButton>
+                <div class="h4">@itinerary.Name</div>
+            @itinerary.ItineraryDate.Value.ToString("MM/dd/yyyy")
+            <FluentButton @onclick="() => MoveToSelectedItinerary(itinerary.Id)" Appearance="Appearance.Accent">Edit</FluentButton>
         </FluentCard>
 
     </FluentGridItem>

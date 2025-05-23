@@ -1,17 +1,17 @@
 ﻿@inherits LayoutComponentBase
-
-<div class="page">
+<div>
     <!--
     <div class="sidebar">
         <NavMenu />
     </div>
     -->
 
-    <main>      
+    <main>
 
         <article>
             @Body
         </article>
+        <FluentToastProvider @rendermode=InteractiveServer />
     </main>
 </div>
 
@@ -21,7 +21,6 @@
     <span class="dismiss">🗙</span>
 </div>
 
-<FluentToastProvider />
 <FluentDialogProvider />
 <FluentTooltipProvider />
 <FluentMessageBarProvider />
