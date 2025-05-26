@@ -194,6 +194,7 @@
                     }
                 }
 
+                SetGoogleMapsDirectionsUrl();
                 UpdateItineraryTimes();
             }
             else
@@ -249,7 +250,7 @@
         ShiftPlaces(sourceIndex, targetIndex);
         args.Source.Item.Index = targetIndex;
 
-        UpdateSecondsAwayOnPlaces();
+        SetCommuteTime();
 
         StateHasChanged();
     }
@@ -335,7 +336,7 @@
         model.PropertyChanged += ItineraryPlaceHoursChanged;
         ItineraryPlaces.Add(model);
 
-        UpdateSecondsAwayOnPlaces();
+        SetCommuteTime();
     }
 
     private void Delete(ItineraryPlaceModel place)
@@ -345,7 +346,7 @@
         {
             addedPlace.Index--;
         }
-        UpdateSecondsAwayOnPlaces();
+        SetCommuteTime();
 
     }
 
@@ -370,7 +371,34 @@
         }
     }
 
-    private void UpdateSecondsAwayOnPlaces()
+    private void SetGoogleMapsDirectionsUrl()
+    {
+        foreach (var place in ItineraryPlaces.OrderBy(x => x.Index))
+        {
+            var currentPlace = place;
+            var previousPlace = ItineraryPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
+
+            if (previousPlace == null)
+            {
+                continue;
+            }
+
+            const string GoogleMapsUrl = "https://www.google.com/maps/dir/?api=1&origin={0},{1}&origin_place_id={2}&destination={3},{4}&destination_place_id={4}&travelmode={5}";
+
+            currentPlace.GoogleMapsUrl = string.Format(
+                GoogleMapsUrl,
+                previousPlace.Place.Location.Latitude,
+                previousPlace.Place.Location.Longitude,
+                previousPlace.Place.Id,
+                currentPlace.Place.Location.Latitude,
+                currentPlace.Place.Location.Longitude,
+                currentPlace.Place.Id,
+                (usePublicTransit ? "TRANSIT" : "DRIVE"));            
+
+        }
+    }
+
+    private void SetCommuteTime()
     {
         RoutesClient googleRoutesClient = new RoutesClientBuilder
             {
@@ -386,19 +414,7 @@
             {
                 //currentPlace.SecondsAwayFromPreviousPlace = 0;
                 continue;
-            }
-
-            const string GoogleMapsUrl = "https://www.google.com/maps/dir/?api=1&origin={0},{1}&origin_place_id={2}&destination={3},{4}&destination_place_id={4}&travelmode={5}";
-
-            currentPlace.GoogleMapsUrl = string.Format(
-                GoogleMapsUrl,
-                previousPlace.Place.Location.Latitude,
-                previousPlace.Place.Location.Longitude,
-                previousPlace.Place.Id,
-                currentPlace.Place.Location.Latitude,
-                currentPlace.Place.Location.Longitude,
-                currentPlace.Place.Id,
-                (usePublicTransit ? "transit" : "drive"));
+            }         
 
 
             if (!currentPlace.Place.PostalAddress.RegionCode.Equals("JP"))
@@ -407,6 +423,7 @@
             }
 
         }
+        SetGoogleMapsDirectionsUrl();
         UpdateItineraryTimes();
     }
 
