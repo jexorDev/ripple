@@ -24,7 +24,7 @@
         <FluentCard>
                 <div class="h4">@itinerary.Name</div>
             @itinerary.ItineraryDate.Value.ToString("MM/dd/yyyy")
-            <FluentButton @onclick="() => MoveToSelectedItinerary(itinerary.Id)" Appearance="Appearance.Accent">Edit</FluentButton>
+            <FluentButton @onclick="() => MoveToSelectedItinerary(itinerary.Id.Value)" Appearance="Appearance.Accent">Edit</FluentButton>
         </FluentCard>
 
     </FluentGridItem>

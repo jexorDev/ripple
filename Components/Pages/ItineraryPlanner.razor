@@ -1,6 +1,7 @@
 ﻿@page "/itinerary/{id:int?}"
 @using System.Linq
 @using Ripple.DataLayer.Classes
+@using Ripple.DataLayer.Models
 @using Ripple.DataLayer.Repos
 @using Google.Api.Gax.Grpc
 @using Google.Maps.Places.V1
@@ -8,6 +9,7 @@
 @using Google.Type
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @using Ripple.Utility
+@using System.ComponentModel
 @rendermode InteractiveServer
 
 @inject IConfiguration Configuration
@@ -17,14 +19,30 @@
 
 <PageTitle>Ripple Itinerary Planner</PageTitle>
 
+<FluentGrid Justify="JustifyContent.FlexEnd">
+    <FluentGridItem sm="4" xs="12">
+        <FluentBreadcrumb>
+            <FluentBreadcrumbItem Href="/">Itineraries</FluentBreadcrumbItem> 
+            <FluentLabel Href="#" Color="@Microsoft.FluentUI.AspNetCore.Components.Color.Accent" @onclick="() => IsItineraryEditPopoverOpen = true" Style="cursor:pointer">@Itinerary.Name</FluentLabel>
+        </FluentBreadcrumb>
 
+        <FluentStack Orientation="Orientation.Horizontal" Id="ItineraryHeaderInfo">
+            <FluentLabel Typo="Typography.Body" Color="@Microsoft.FluentUI.AspNetCore.Components.Color.Accent" Weight="FontWeight.Bold" @onclick="() => IsItineraryEditPopoverOpen = true" Style="cursor:pointer">
+                @ItineraryDateTime
+            </FluentLabel>
 
-<FluentGrid>
-    <FluentGridItem sm="5">
-
-        <FluentButton Appearance="Appearance.Lightweight" class="h2" Style="margin-top:5px" @onclick=GoHome>Ripple</FluentButton>
+        </FluentStack>
+        <FluentPopover AnchorId="ItineraryHeaderInfo" @bind-Open="IsItineraryEditPopoverOpen">
+            <Header>Your Itinerary</Header>
+            <Body>
+                <FluentTextField @bind-Value="Itinerary.Name" Label="Name"></FluentTextField>
+                <FluentDatePicker @bind-Value="Itinerary.ItineraryDate" Label="Start Date"></FluentDatePicker>
+                <FluentTimePicker @bind-Value="Itinerary.ItineraryTime" Label="Start Time"></FluentTimePicker>
+                <FluentButton Appearance="Appearance.Accent" @onclick="() => IsItineraryEditPopoverOpen = false">Done</FluentButton>
+            </Body>
+        </FluentPopover>
     </FluentGridItem>
-    <FluentGridItem sm="7" xs="12">
+    <FluentGridItem sm="4" xs="12">
         <FluentAutocomplete TOption="Place"
         Label="Search places"
         Position="SelectPosition.Below"
@@ -42,45 +60,37 @@
         </FluentAutocomplete>
 
     </FluentGridItem>
-
-
-
-
-    <FluentGridItem sm="2" xs="12">
-        <FluentCard>
-            <div class="h3">Your Itinerary</div>
-            <FluentTextField @bind-Value="itinerary.Name" Label="Name"></FluentTextField>
-            <FluentDatePicker @bind-Value="itinerary.ItineraryDate" Label="Start Date"></FluentDatePicker>
-            <FluentTimePicker @bind-Value="itinerary.ItineraryTime" Label="Start Time"></FluentTimePicker>
-            @* <FluentCheckbox @bind-Value=usePublicTransit Label="Use Public Transit" /> *@
-            <FluentButton @onclick=UpdateSecondsAwayOnPlaces Appearance="Appearance.Outline" Style="margin-top:5px;width:100%">Recalc. arrival/departure</FluentButton>
-            <FluentButton @onclick="Save" Appearance="Appearance.Accent" Style="margin-top:2px;width:100%">Save</FluentButton>
-        </FluentCard>
+    <FluentGridItem sm="4" xs="12" Justify="JustifyContent.Center">
+        <FluentButton Appearance="Appearance.Accent" @onclick=Save Style="margin-top:10px">Save changes</FluentButton>
 
     </FluentGridItem>
-    <FluentGridItem sm="10" xs="12">
-        @if (itinerary.AddedPlaces.Count == 0)
+
+
+    <FluentGridItem sm="12" xs="12">
+        @if (ItineraryPlaces.Count == 0)
         {
             <div class="h2" style="font-style:italic; color:grey; text-align:center">Places will appear here once you add them from the search bar above</div>
             <div class="h4" style="font-style:italic; color:grey; text-align:center">Make sure to use the blue save button often to save changes</div>
         }
 
-        <FluentDragContainer TItem="ItineraryPlace" OnDropEnd="PlaceDragDropEnd">
+        <FluentDragContainer TItem="ItineraryPlaceModel" OnDropEnd="PlaceDragDropEnd">
             <FluentGrid Spacing="1">
-                @foreach (var addedPlace in itinerary.AddedPlaces.OrderBy(x => x.Index))
+                @foreach (var addedPlace in ItineraryPlaces.OrderBy(x => x.Index))
                 {
 
                     @if (addedPlace.Index != 1)
                     {
                         <FluentGridItem sm="12">
-                            <FluentNumberField @bind-Value="addedPlace.MinutesAwayFromPreviousPlace" Label="Commute Time (min)"></FluentNumberField>
-                            <FluentAnchor Href="@addedPlace.GoogleMapsUrl" Target="_blank" Appearance="Appearance.Lightweight">Directions</FluentAnchor>
+                            <FluentStack Orientation="Orientation.Horizontal">
+                                <FluentNumberField @bind-Value="addedPlace.CommuteMinutes" Label="Commute Time (min)" Style="width:90px"></FluentNumberField>
+                                <FluentAnchor Href="@addedPlace.GoogleMapsUrl" Target="_blank" Appearance="Appearance.Lightweight">Directions</FluentAnchor>
+                            </FluentStack>
                         </FluentGridItem>                        
                     }
                     <FluentGridItem sm="12">
                         <FluentCard>
                             <FluentGrid>
-                                <FluentGridItem sm="3">
+                                <FluentGridItem sm="4" xs="12">
                                     <FluentDropZone Id="@addedPlace.Index.ToString()" Item="@addedPlace" Draggable="true" Droppable="true">
                                         <FluentBadge Appearance="Appearance.Accent">@addedPlace.Index</FluentBadge>
                                         @addedPlace.Place.DisplayName.Text
@@ -88,7 +98,7 @@
 
                                     </FluentDropZone>
                                 </FluentGridItem>
-                                <FluentGridItem sm="2">
+                                <FluentGridItem sm="2" xs="4">
                                     @if (addedPlace.Index == 1)
                                     {
                                         <FluentBadge Fill="blah" BackgroundColor="mediumseagreen" Color="white">Start</FluentBadge>
@@ -100,8 +110,8 @@
 
                                     }
                                 </FluentGridItem>
-                                <FluentGridItem sm="2">
-                                    @if (addedPlace.Index == itinerary.AddedPlaces.Count() && itinerary.AddedPlaces.Count() > 1)
+                                <FluentGridItem sm="2" xs="4">
+                                    @if (addedPlace.Index == ItineraryPlaces.Count() && ItineraryPlaces.Count() > 1)
                                     {
                                         <FluentBadge Fill="blah" BackgroundColor="crimson" Color="white">End</FluentBadge>
                                     }
@@ -112,12 +122,16 @@
                                     }
 
                                 </FluentGridItem>
-                                <FluentGridItem xs="6" sm="2">
-                                    <FluentNumberField @bind-Value="addedPlace.VisitHours" Label="Visit Time (hrs)"></FluentNumberField>
+                                <FluentGridItem sm="2" xs="4">
+                                    @if (addedPlace.Index != 1 && addedPlace.Index != ItineraryPlaces.Count())
+                                    {
+                                        <FluentNumberField @bind-Value="addedPlace.VisitHours" Label="Visit Time (hrs)" style="width:90px"></FluentNumberField>
+
+                                    }
                                 </FluentGridItem>
 
 
-                                <FluentGridItem xs="6" sm="1">
+                                <FluentGridItem sm="1" xs="6">
                                     <FluentStack Orientation="Orientation.Vertical">
 
                                         <FluentButton @onclick="() => Delete(addedPlace)" Appearance="Appearance.Lightweight">Delete</FluentButton>
@@ -139,31 +153,22 @@
 </FluentGrid>
 
 
-
-
-
-
-
-
-
 @code {
     [Parameter]
     public int? Id { get; set; }
 
-    private Itinerary _backingItinerary = new Itinerary();
-    private Itinerary itinerary
-    {
-        get => _backingItinerary;
-        set
-        {
-            _backingItinerary = value;
-            StateHasChanged();
-        }
-    }
+    private ItineraryModel Itinerary = new ItineraryModel();
+    private List<ItineraryPlaceModel> ItineraryPlaces { get; set; } = new List<ItineraryPlaceModel>();
+
+    private bool IsItineraryEditPopoverOpen { get; set; }
 
     private void GoHome() => NavigationManager.NavigateTo("/");
 
-    protected override async Task OnAfterRenderAsync(bool isFirstRender)
+    private string ItineraryDateTime => Itinerary.ItineraryDate.HasValue && Itinerary.ItineraryTime.HasValue ?
+                                            Itinerary.ItineraryDate.Value.ToString("MM/dd/yyyy") + " " + Itinerary.ItineraryTime.Value.ToShortTimeString() :
+                                            string.Empty;
+
+    protected override void OnAfterRender(bool isFirstRender)
     {
         if (isFirstRender)
         {
@@ -171,20 +176,41 @@
             {
                 using (var connection = new DatabaseConnectionProvider(Configuration))
                 {
-                    itinerary = new ItineraryRepository().Get(Id.Value, connection.GetConnection()).FirstOrDefault();
-                    itinerary.AddedPlaces = new ItineraryPlacesRepository().Get(Id.Value, connection.GetConnection());
+                    var existingItinerary = new ItineraryRepository().Get(Id.Value, connection.GetConnection()).FirstOrDefault();
+                    if (existingItinerary != null)
+                    {
+                        Itinerary = new ItineraryModel(existingItinerary);
+                        Itinerary.PropertyChanged += ItineraryPlaceHoursChanged;
+                    }
+
+                    var existingItineraryPlaces = new ItineraryPlacesRepository().Get(Id.Value, connection.GetConnection());
+
+                    foreach (var addedPlace in existingItineraryPlaces)
+                    {
+                        var model = new ItineraryPlaceModel(addedPlace);
+                        //TODO: Look into collection for handling changes
+                        model.PropertyChanged += ItineraryPlaceHoursChanged;
+                        ItineraryPlaces.Add(model);
+                    }
                 }
+
+                UpdateItineraryTimes();
             }
             else
             {
-                itinerary.Name = "My Itinerary";
-                itinerary.ItineraryDate = System.DateTime.Now;
-                itinerary.ItineraryTime = System.DateTime.Now;
+                Itinerary.Name = "My New Itinerary";
+                Itinerary.ItineraryDate = System.DateTime.Now;
+                Itinerary.ItineraryTime = System.DateTime.Now;
             }
 
             StateHasChanged();
 
         }
+    }
+
+    private void ItineraryPlaceHoursChanged(object? obj, PropertyChangedEventArgs e)
+    {
+        UpdateItineraryTimes();
     }
 
     private void Save()
@@ -197,20 +223,15 @@
 
             connection.SetTransaction();
 
-            if (!Id.HasValue)
-            {
-                Id = itineraryRepo.Create(itinerary, connection.GetConnection());
-            }
-            else
-            {
-                itineraryRepo.Update(itinerary, connection.GetConnection());
-                itineraryPlaceRepo.DeleteAllPlaces(Id.Value, connection.GetConnection());
-            }
+            Itinerary.Save(itineraryRepo, connection.GetConnection());
 
-            foreach (var place in itinerary.AddedPlaces)
+
+            itineraryPlaceRepo.DeleteAllPlaces(Itinerary.Id.Value, connection.GetConnection());
+
+            foreach (var place in ItineraryPlaces)
             {
                 placeRepo.Save(place.Place, connection.GetConnection());
-                itineraryPlaceRepo.Save(place, Id.Value, connection.GetConnection());
+                place.Save(Itinerary.Id.Value, itineraryPlaceRepo, connection.GetConnection());
             }
 
             connection.CompleteTransaction();
@@ -220,7 +241,7 @@
     }
 
 
-    private void PlaceDragDropEnd(FluentDragEventArgs<ItineraryPlace> args)
+    private void PlaceDragDropEnd(FluentDragEventArgs<ItineraryPlaceModel> args)
     {
         var sourceIndex = args.Source.Item.Index;
         var targetIndex = args.Target.Item.Index;
@@ -240,7 +261,7 @@
         {
             for (int i = sourceIndex + 1; i <= targetIndex; i++)
             {
-                var currentPlace = itinerary.AddedPlaces.FirstOrDefault(x => x.Index == i);
+                var currentPlace = ItineraryPlaces.FirstOrDefault(x => x.Index == i);
                 if (currentPlace != null)
                 {
                     currentPlace.Index -= 1;
@@ -251,7 +272,7 @@
         {
             for (int i = sourceIndex - 1; i >= targetIndex; i--)
             {
-                var currentPlace = itinerary.AddedPlaces.FirstOrDefault(x => x.Index == i);
+                var currentPlace = ItineraryPlaces.FirstOrDefault(x => x.Index == i);
                 if (currentPlace != null)
                 {
                     currentPlace.Index += 1;
@@ -305,20 +326,22 @@
 
     private void AddPlace(Place place)
     {
-        int nextIndex = itinerary.AddedPlaces.Count + 1;
-        itinerary.AddedPlaces.Add(new ItineraryPlace
+        int nextIndex = ItineraryPlaces.Count + 1;
+        var model = new ItineraryPlaceModel(new ItineraryPlace
             {
                 Index = nextIndex,
                 Place = place
             });
+        model.PropertyChanged += ItineraryPlaceHoursChanged;
+        ItineraryPlaces.Add(model);
 
         UpdateSecondsAwayOnPlaces();
     }
 
-    private void Delete(ItineraryPlace place)
+    private void Delete(ItineraryPlaceModel place)
     {
-        itinerary.AddedPlaces.Remove(place);
-        foreach (var addedPlace in itinerary.AddedPlaces.Where(x => x.Index > place.Index))
+        ItineraryPlaces.Remove(place);
+        foreach (var addedPlace in ItineraryPlaces.Where(x => x.Index > place.Index))
         {
             addedPlace.Index--;
         }
@@ -328,18 +351,20 @@
 
     private void UpdateItineraryTimes()
     {
-        foreach (var place in itinerary.AddedPlaces.OrderBy(x => x.Index))
+        if (!Itinerary.ItineraryTime.HasValue || !Itinerary.ItineraryDate.HasValue) return;
+
+        foreach (var place in ItineraryPlaces.OrderBy(x => x.Index))
         {
             var currentPlace = place;
-            var previousPlace = itinerary.AddedPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
+            var previousPlace = ItineraryPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
 
-            if (previousPlace == null && itinerary.ItineraryDate.HasValue && itinerary.ItineraryTime.HasValue)
+            if (previousPlace == null && Itinerary.ItineraryDate.HasValue && Itinerary.ItineraryTime.HasValue)
             {
-                currentPlace.DepartureTime = new System.DateTime(itinerary.ItineraryDate.Value.Year, itinerary.ItineraryDate.Value.Month, itinerary.ItineraryDate.Value.Day, itinerary.ItineraryTime.Value.Hour, itinerary.ItineraryTime.Value.Minute, 00);
+                currentPlace.DepartureTime = new System.DateTime(Itinerary.ItineraryDate.Value.Year, Itinerary.ItineraryDate.Value.Month, Itinerary.ItineraryDate.Value.Day, Itinerary.ItineraryTime.Value.Hour, Itinerary.ItineraryTime.Value.Minute, 00);
             }
             else
             {
-                currentPlace.ArrivalTime = previousPlace.DepartureTime.AddMinutes(currentPlace.MinutesAwayFromPreviousPlace);
+                currentPlace.ArrivalTime = previousPlace.DepartureTime.AddMinutes(currentPlace.CommuteMinutes);
                 currentPlace.DepartureTime = currentPlace.ArrivalTime.AddHours(currentPlace.VisitHours);
             }
         }
@@ -352,10 +377,10 @@
                 ApiKey = Configuration["GoogleAPIKey"]
             }.Build();
 
-        foreach (var place in itinerary.AddedPlaces.OrderBy(x => x.Index))
+        foreach (var place in ItineraryPlaces.OrderBy(x => x.Index))
         {
             var currentPlace = place;
-            var previousPlace = itinerary.AddedPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
+            var previousPlace = ItineraryPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
 
             if (previousPlace == null)
             {
@@ -385,7 +410,7 @@
         UpdateItineraryTimes();
     }
 
-    private void SetCommuteTimeFromGoogle(ItineraryPlace currentPlace, ItineraryPlace previousPlace, RoutesClient client)
+    private void SetCommuteTimeFromGoogle(ItineraryPlaceModel currentPlace, ItineraryPlaceModel previousPlace, RoutesClient client)
     {
 
         CallSettings callSettings = CallSettings.FromHeader("X-Goog-FieldMask", "routes.*");
@@ -414,7 +439,7 @@
             };
         ComputeRoutesResponse response = client.ComputeRoutes(request, callSettings);
         //currentPlace.SecondsAwayFromPreviousPlace = response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0;
-        currentPlace.MinutesAwayFromPreviousPlace = (response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0) / 60;
+        currentPlace.CommuteMinutes = (response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0) / 60;
 
     }
 
