@@ -66,7 +66,7 @@
     </FluentGridItem>
 
 
-    <FluentGridItem sm="12" xs="12">
+    <FluentGridItem sm="6">
         @if (ItineraryPlaces.Count == 0)
         {
             <div class="h2" style="font-style:italic; color:grey; text-align:center">Places will appear here once you add them from the search bar above</div>
@@ -85,7 +85,7 @@
                                 <FluentNumberField @bind-Value="addedPlace.CommuteMinutes" Label="Commute Time (min)" Style="width:90px"></FluentNumberField>
                                 <FluentAnchor Href="@addedPlace.GoogleMapsUrl" Target="_blank" Appearance="Appearance.Lightweight">Directions</FluentAnchor>
                             </FluentStack>
-                        </FluentGridItem>                        
+                        </FluentGridItem>
                     }
                     <FluentGridItem sm="12">
                         <FluentCard>
@@ -150,6 +150,13 @@
             </FluentGrid>
         </FluentDragContainer>
     </FluentGridItem>
+    <FluentGridItem sm="6">
+        @if (MapByteArray != null)
+        {
+            <img src="data:image;base64, @System.Convert.ToBase64String(MapByteArray)"  />
+
+        }
+    </FluentGridItem>
 </FluentGrid>
 
 
@@ -160,6 +167,7 @@
     private ItineraryModel Itinerary = new ItineraryModel();
     private List<ItineraryPlaceModel> ItineraryPlaces { get; set; } = new List<ItineraryPlaceModel>();
 
+    private byte[]? MapByteArray;
     private bool IsItineraryEditPopoverOpen { get; set; }
 
     private void GoHome() => NavigationManager.NavigateTo("/");
@@ -196,6 +204,7 @@
 
                 SetGoogleMapsDirectionsUrl();
                 UpdateItineraryTimes();
+                RefreshMap();
             }
             else
             {
@@ -250,6 +259,7 @@
         ShiftPlaces(sourceIndex, targetIndex);
         args.Source.Item.Index = targetIndex;
 
+        RefreshMap();
         SetCommuteTime();
 
         StateHasChanged();
@@ -336,6 +346,7 @@
         model.PropertyChanged += ItineraryPlaceHoursChanged;
         ItineraryPlaces.Add(model);
 
+        RefreshMap();
         SetCommuteTime();
     }
 
@@ -346,6 +357,7 @@
         {
             addedPlace.Index--;
         }
+        RefreshMap();
         SetCommuteTime();
 
     }
@@ -396,6 +408,13 @@
                 (usePublicTransit ? "TRANSIT" : "DRIVE"));            
 
         }
+    }
+
+    private async Task RefreshMap()
+    {
+        
+        MapByteArray = await GoogleMaps.GetMapByteArray(Configuration["GoogleAPIKey"], Configuration["GoogleSecret"], ItineraryPlaces);
+        StateHasChanged();
     }
 
     private void SetCommuteTime()
