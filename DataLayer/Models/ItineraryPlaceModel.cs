@@ -59,7 +59,8 @@ namespace Ripple.DataLayer.Models
 
         public DateTime ArrivalTime { get; set; }
         public DateTime DepartureTime { get; set; }
-        public string GoogleMapsUrl { get; set; } = string.Empty;
+        public string GoogleMapsDirectionsUrl { get; set; } = string.Empty;
+        public string GoogleMapsPlaceUrl { get; set; } = string.Empty;
 
         public void Save(int itineraryId, ItineraryPlacesRepository repo, IDbConnection connection)
         {
