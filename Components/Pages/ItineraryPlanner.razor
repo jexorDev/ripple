@@ -23,7 +23,7 @@
 <FluentGrid Justify="JustifyContent.FlexEnd">
     <FluentGridItem sm="4" xs="12">
         <FluentBreadcrumb>
-            <FluentBreadcrumbItem Href="/">Itineraries</FluentBreadcrumbItem> 
+            <FluentBreadcrumbItem @onclick="() => GoHome()">Itineraries</FluentBreadcrumbItem> 
             <FluentLabel Href="#" Color="@Microsoft.FluentUI.AspNetCore.Components.Color.Accent" @onclick="() => IsItineraryEditPopoverOpen = true" Style="cursor:pointer">@Itinerary.Name</FluentLabel>
         </FluentBreadcrumb>
 
@@ -168,7 +168,7 @@
     private byte[]? MapByteArray;
     private bool IsItineraryEditPopoverOpen { get; set; }
 
-    private void GoHome() => NavigationManager.NavigateTo("/");
+    private void GoHome() => NavigationManager.NavigateTo(NavigationManager.BaseUri);
 
     private string ItineraryDateTime => Itinerary.ItineraryDate.HasValue && Itinerary.ItineraryTime.HasValue ?
                                             Itinerary.ItineraryDate.Value.ToString("MM/dd/yyyy") + " " + Itinerary.ItineraryTime.Value.ToShortTimeString() :
