@@ -17,10 +17,11 @@ select
     ,sequence
     ,visit_hours
     ,commute_minutes
+    ,coalesce(notes, '') as notes
     ,p.data
 from
     itinerary_places ip
-inner join
+left outer join
     places p
 on
     ip.place_id = p.id
@@ -43,6 +44,7 @@ where
                             Index = reader.GetFieldValue<int>("sequence"),
                             VisitHours = reader.GetFieldValue<double>("visit_hours"),
                             MinutesAwayFromPreviousPlace = reader.GetFieldValue<long>("commute_minutes"),
+                            Notes = reader.GetFieldValue<string>("notes"),
                             Place = JsonConvert.DeserializeObject<Place>(placeJson)
                         });
                     }
@@ -63,6 +65,7 @@ insert into
     ,sequence
     ,visit_hours
     ,commute_minutes
+    ,notes
 )
 values
 (
@@ -71,6 +74,7 @@ values
     ,@sequence
     ,@visit_hours
     ,@commute_minutes
+    ,@notes
 ) 
 ";
 
@@ -79,10 +83,11 @@ values
             using (var cmd = new NpgsqlCommand(sql, (NpgsqlConnection)connection))
             {
                 cmd.Parameters.AddWithValue("@itinerary_id", itineraryId);
-                cmd.Parameters.AddWithValue("@place_id", itineraryPlace.Place.Id);
+                cmd.Parameters.AddWithValue("@place_id", itineraryPlace.Place!=null ? itineraryPlace.Place.Id : string.Empty);
                 cmd.Parameters.AddWithValue("@sequence", itineraryPlace.Index);
                 cmd.Parameters.AddWithValue("@visit_hours", itineraryPlace.VisitHours);
                 cmd.Parameters.AddWithValue("@commute_minutes", itineraryPlace.MinutesAwayFromPreviousPlace);
+                cmd.Parameters.AddWithValue("@notes", itineraryPlace.Notes ?? string.Empty);
 
                 cmd.ExecuteNonQuery();
             }
