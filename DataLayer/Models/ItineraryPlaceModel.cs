@@ -63,7 +63,7 @@ namespace Ripple.DataLayer.Models
             set => _dto.Index = value;
         }
 
-        public Place Place
+        public Place? Place
         {
             get => _dto.Place;
             set => _dto.Place = value;

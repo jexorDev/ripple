@@ -9,7 +9,7 @@ namespace Ripple.Utility
         public static async Task<byte[]?> GetMapByteArray(string googleApiKey, string googleSecret, List<ItineraryPlaceModel> places)
         {
             
-            var firstLocation = places.FirstOrDefault();
+            var firstLocation = places.Where(p => p.Place != null).FirstOrDefault();
 
             if (firstLocation == null) return null;
 
