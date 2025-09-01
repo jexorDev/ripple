@@ -83,7 +83,7 @@
                 @foreach (var addedPlace in ItineraryPlaces.OrderBy(x => x.Index))
                 {
 
-                    var lineCount = string.IsNullOrEmpty(addedPlace.Notes)
+                    var lineCount = string.IsNullOrWhiteSpace(addedPlace.Notes)
                     ? 1
                     : addedPlace.Notes.Split('\n', '\r').Length;
 
@@ -262,8 +262,8 @@
 
             foreach (var place in ItineraryPlaces)
             {
-                placeRepo.Save(place.Place, connection.GetConnection());
-                place.Save(Itinerary.Id.Value, itineraryPlaceRepo, connection.GetConnection());
+                    placeRepo.Save(place.Place, connection.GetConnection());
+                    place.Save(Itinerary.Id.Value, itineraryPlaceRepo, connection.GetConnection());
             }
 
             connection.CompleteTransaction();
@@ -528,7 +528,7 @@
         ItineraryPlaces.Add(placeholder);
         
       //  SetCommuteTime();
-       // StateHasChanged();
+
     }
 
 }
