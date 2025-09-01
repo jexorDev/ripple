@@ -38,14 +38,16 @@ where
                 {
                     while (reader.Read())
                     {
-                        var placeJson = reader.GetFieldValue<string>("Data");
+                        var placeJson = reader.IsDBNull(reader.GetOrdinal("data"))
+                            ? null
+                            : reader.GetFieldValue<string>("data"); ;
                         itineraryPlaces.Add(new ItineraryPlace
                         {
                             Index = reader.GetFieldValue<int>("sequence"),
                             VisitHours = reader.GetFieldValue<double>("visit_hours"),
                             MinutesAwayFromPreviousPlace = reader.GetFieldValue<long>("commute_minutes"),
                             Notes = reader.GetFieldValue<string>("notes"),
-                            Place = JsonConvert.DeserializeObject<Place>(placeJson)
+                            Place = placeJson != null ? JsonConvert.DeserializeObject<Place>(placeJson) : null
                         });
                     }
                 }
