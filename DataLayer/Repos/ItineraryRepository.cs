@@ -1,5 +1,4 @@
-﻿using Google.Maps.Places.V1;
-using Npgsql;
+﻿using Npgsql;
 using Ripple.DataLayer.Classes;
 using System.Data;
 
