@@ -82,11 +82,6 @@
             <FluentGrid Spacing="1">
                 @foreach (var addedPlace in ItineraryPlaces.OrderBy(x => x.Index))
                 {
-
-                    var lineCount = string.IsNullOrWhiteSpace(addedPlace.Notes)
-                    ? 1
-                    : addedPlace.Notes.Split('\n', '\r').Length;
-
                     @if (addedPlace.Index != 1)
                     {
                         <FluentGridItem sm="12">
@@ -152,7 +147,7 @@
                                         placeholder="Add any notes for this place here"
                                         Maxlength="256"
                                         Resize="TextAreaResize.Vertical"
-                                        Rows="@lineCount"
+                                                Rows="(string.IsNullOrWhiteSpace(addedPlace.Notes) ? 1 : addedPlace.Notes.Split('\n', '\r').Length)"
                                         Style="width:300px;">
                                     </FluentTextArea>
                                 </FluentGridItem>
@@ -262,8 +257,11 @@
 
             foreach (var place in ItineraryPlaces)
             {
+                if (place.Place != null) 
+                {                    
                     placeRepo.Save(place.Place, connection.GetConnection());
-                    place.Save(Itinerary.Id.Value, itineraryPlaceRepo, connection.GetConnection());
+                }
+                place.Save(Itinerary.Id.Value, itineraryPlaceRepo, connection.GetConnection());
             }
 
             connection.CompleteTransaction();

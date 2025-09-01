@@ -11,8 +11,6 @@ namespace Ripple.DataLayer.Repos
         public void Save(Place place, IDbConnection connection)
         {
 
-            if (place == null) return;
-
             const string sql = @"
 insert into
     places
