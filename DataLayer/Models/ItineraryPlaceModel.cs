@@ -44,13 +44,26 @@ namespace Ripple.DataLayer.Models
             }
         }
 
+        public string Notes
+        {
+            get => _dto.Notes;
+            set
+            {
+                if (value != _dto.Notes)
+                {
+                    _dto.Notes = value;
+                    NotifyPropertyChanged(nameof(Notes));
+                }
+            }
+        }
+
         public int Index
         {
             get => _dto.Index;
             set => _dto.Index = value;
         }
 
-        public Place Place
+        public Place? Place
         {
             get => _dto.Place;
             set => _dto.Place = value;

@@ -60,6 +60,10 @@
             </OptionTemplate>
         </FluentAutocomplete>
 
+        <FluentButton Appearance="Appearance.Lightweight" @onclick="AddPlaceholderPlace" Style="margin-bottom:10px">
+            Add Placeholder
+        </FluentButton>
+
     </FluentGridItem>
     <FluentGridItem sm="4" xs="12" Justify="JustifyContent.Center">
         <FluentButton Appearance="Appearance.Accent" @onclick=Save Style="margin-top:10px">Save changes</FluentButton>
@@ -78,7 +82,6 @@
             <FluentGrid Spacing="1">
                 @foreach (var addedPlace in ItineraryPlaces.OrderBy(x => x.Index))
                 {
-
                     @if (addedPlace.Index != 1)
                     {
                         <FluentGridItem sm="12">
@@ -94,10 +97,18 @@
                                 <FluentGridItem sm="4" xs="12">
                                     <FluentDropZone Id="@addedPlace.Index.ToString()" Item="@addedPlace" Draggable="true" Droppable="true">
                                         <FluentBadge Appearance="Appearance.Accent">@addedPlace.Index</FluentBadge>
+                                        @if (addedPlace.Place != null)
+                                        {
                                             @addedPlace.Place.DisplayName.Text
                                             @addedPlace.Place.FormattedAddress
+                                        }
+                                        else
+                                        {
+                                            <span style="color:gray; font-style:italic;">No Location Selected</span>
+                                        }
                                     </FluentDropZone>
                                 </FluentGridItem>
+
                                 <FluentGridItem sm="2" xs="4">
                                     @if (addedPlace.Index == 1)
                                     {
@@ -129,13 +140,21 @@
 
                                     }
                                 </FluentGridItem>
-
+                                <FluentGridItem sm="12" xs="12">
+                                    <FluentTextArea 
+                                        @bind-Value="addedPlace.Notes" 
+                                        Label="Notes"
+                                        placeholder="Add any notes for this place here"
+                                        Maxlength="256"
+                                        Resize="TextAreaResize.Vertical"
+                                                Rows="(string.IsNullOrWhiteSpace(addedPlace.Notes) ? 1 : addedPlace.Notes.Split('\n', '\r').Length)"
+                                        Style="width:300px;">
+                                    </FluentTextArea>
+                                </FluentGridItem>
 
                                 <FluentGridItem sm="1" xs="6">
                                         <FluentButton @onclick="() => Delete(addedPlace)" Appearance="Appearance.Lightweight">Delete</FluentButton>
                                         <FluentAnchor Href="@addedPlace.GoogleMapsPlaceUrl" Target="_blank" Appearance="Appearance.Lightweight"><FluentIcon Value="@(new Icons.Regular.Size16.Open())"/>View</FluentAnchor>
-                                    
-
                                 </FluentGridItem>
                             </FluentGrid>
 
@@ -238,7 +257,10 @@
 
             foreach (var place in ItineraryPlaces)
             {
-                placeRepo.Save(place.Place, connection.GetConnection());
+                if (place.Place != null) 
+                {                    
+                    placeRepo.Save(place.Place, connection.GetConnection());
+                }
                 place.Save(Itinerary.Id.Value, itineraryPlaceRepo, connection.GetConnection());
             }
 
@@ -385,6 +407,9 @@
     {
         foreach (var place in ItineraryPlaces.OrderBy(x => x.Index))
         {
+            if (place.Place == null) continue;
+
+
             var currentPlace = place;
 
             const string GoogleMapsPlaceUrl = "https://www.google.com/maps/search/?api=1&query={0}%2C{1}&query_place_id={2}";
@@ -395,9 +420,15 @@
                     currentPlace.Place.Location.Longitude,
                     currentPlace.Place.Id);
 
-            var previousPlace = ItineraryPlaces.FirstOrDefault(x => x.Index == currentPlace.Index - 1);
+            ItineraryPlaceModel? previousPlace = null; 
+            for (int i = currentPlace.Index - 1; i > 1; i--)
+            {
+                previousPlace = ItineraryPlaces.FirstOrDefault(x => x.Index == i);
+                if (previousPlace != null && previousPlace.Place != null) break;
 
-            if (previousPlace == null)
+            }
+
+            if (previousPlace == null || previousPlace.Place == null)
             {
                 continue;
             }
@@ -443,7 +474,7 @@
             }         
 
 
-            if (!currentPlace.Place.PostalAddress.RegionCode.Equals("JP"))
+            if (currentPlace.Place != null && !currentPlace.Place.PostalAddress.RegionCode.Equals("JP"))
             {
                 SetCommuteTimeFromGoogle(currentPlace, previousPlace, googleRoutesClient);
             }
@@ -483,6 +514,18 @@
         ComputeRoutesResponse response = client.ComputeRoutes(request, callSettings);
         //currentPlace.SecondsAwayFromPreviousPlace = response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0;
         currentPlace.CommuteMinutes = (response.Routes.FirstOrDefault()?.Duration.Seconds ?? 0) / 60;
+
+    }
+
+    private void AddPlaceholderPlace()
+    {
+        var placeholder = new ItineraryPlaceModel(new ItineraryPlace
+            {
+            Index = ItineraryPlaces.Count + 1
+            });
+        ItineraryPlaces.Add(placeholder);
+        
+      
 
     }
 

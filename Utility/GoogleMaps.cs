@@ -9,7 +9,7 @@ namespace Ripple.Utility
         public static async Task<byte[]?> GetMapByteArray(string googleApiKey, string googleSecret, List<ItineraryPlaceModel> places)
         {
             
-            var firstLocation = places.FirstOrDefault();
+            var firstLocation = places.Where(p => p.Place != null).FirstOrDefault();
 
             if (firstLocation == null) return null;
 
@@ -19,7 +19,8 @@ namespace Ripple.Utility
 
             foreach (var place in places)
             {
-                markers += $"&markers=color:red|label:{place.Index}|{place.Place.Location.Latitude},{place.Place.Location.Longitude}";
+                if(place.Place != null)
+                    markers += $"&markers=color:red|label:{place.Index}|{place.Place.Location.Latitude},{place.Place.Location.Longitude}";
             }
 
             const string Url = "https://maps.googleapis.com/maps/api/staticmap?center={0}&zoom=12&size=800x800&maptype=roadmap&key={1}{2}";

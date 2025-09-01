@@ -10,6 +10,7 @@ namespace Ripple.DataLayer.Repos
     {
         public void Save(Place place, IDbConnection connection)
         {
+
             const string sql = @"
 insert into
     places
